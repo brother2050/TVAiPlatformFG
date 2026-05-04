@@ -1,0 +1,45 @@
+server:
+  host: "0.0.0.0"
+  api_port: 8000
+  web_port: 3100
+
+comfyui:
+  base_url: "http://127.0.0.1:8188"
+  timeout: 300
+  upload_timeout: 120
+  ssl_verify: false
+
+dify:
+  api_url: "http://127.0.0.1:80/v1"
+  api_key: "${DIFY_API_KEY}"
+
+tts:
+  engine: "edge-tts"
+  engines:
+    edge-tts:
+      voice: "zh-CN-XiaoxiaoNeural"
+      rate: "+0%"
+      pitch: "+0Hz"
+    fish-speech:
+      api_url: "http://127.0.0.1:8080"
+    elevenlabs:
+      api_key: "${ELEVENLABS_API_KEY}"
+      voice_id: "21m00Tcm4TlvDq8ikWAM"
+
+database:
+  type: "postgres"
+  postgres_url: "postgresql+asyncpg://tvaai_user:tvaai_pass@127.0.0.1:5432/tvaai_db"
+  pool_size: 20
+  max_overflow: 10
+
+redis:
+  url: "redis://127.0.0.1:6379/0"
+
+storage:
+  type: "local"
+  local_path: "./storage"
+  image_format: "webp"
+  image_quality: 85
+  video_format: "mp4"
+  audio_format: "wav"
+  max_upload_size_mb: 100

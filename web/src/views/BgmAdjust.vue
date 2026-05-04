@@ -144,10 +144,12 @@ import {
   Bell, Delete, Grid,
 } from '@element-plus/icons-vue'
 import { editorApi } from '@/api/editor'
+import { projectApi } from '@/api/project'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const episodeId = computed(() => route.params.id as string)
+const projectId = computed(() => route.params.id as string)
+let episodeId = ''
 
 const bgmDescription = ref('')
 const generating = ref(false)
@@ -184,8 +186,9 @@ const mixLevels = reactive({
 
 // 加载 BGM 数据
 async function loadBgmData() {
+  if (!episodeId) return
   try {
-    const res = await editorApi.getBgmData(episodeId.value)
+    const res = await editorApi.getBgmData(episodeId)
     const data = res.data?.data
     if (data) {
       currentBgm.value = data.bgm
@@ -200,8 +203,14 @@ async function loadBgmData() {
   }
 }
 
-onMounted(() => {
-  loadBgmData()
+onMounted(async () => {
+  // 先获取 episodes 列表，取第一个 episode 的 id
+  const res = await projectApi.getEpisodes(projectId.value)
+  const episodes = res.data.data
+  if (episodes && episodes.length > 0) {
+    episodeId = episodes[0].id
+    loadBgmData()
+  }
 })
 
 const sfxLibrary = [
@@ -231,7 +240,7 @@ async function generateBgm() {
   }
   generating.value = true
   try {
-    await editorApi.generateBgm(episodeId.value, {
+    await editorApi.generateBgm(episodeId, {
       description: bgmDescription.value,
     })
     ElMessage.success('BGM 生成任务已提交，请等待处理')
@@ -247,7 +256,7 @@ async function toggleBgm() {
   bgmPlaying.value = !bgmPlaying.value
   // 保存 BGM 播放状态到后端
   try {
-    await editorApi.updateBgm(episodeId.value, {
+    await editorApi.updateBgm(episodeId, {
       is_playing: bgmPlaying.value,
       volume: bgmVolume.value,
     })
@@ -258,7 +267,7 @@ async function toggleBgm() {
 
 async function handleUploadBgm(file: File) {
   try {
-    const res = await editorApi.uploadBgm(episodeId.value, file)
+    const res = await editorApi.uploadBgm(episodeId, file)
     const result = res.data?.data
     if (result?.url) {
       currentBgm.value = {
@@ -277,7 +286,7 @@ async function handleUploadBgm(file: File) {
 
 async function handleUploadSfx(file: File) {
   try {
-    const res = await editorApi.uploadSfx(episodeId.value, file)
+    const res = await editorApi.uploadSfx(episodeId, file)
     const result = res.data?.data
     sfxList.value.push({
       id: result?.id || Date.now().toString(),
@@ -312,7 +321,7 @@ async function playSfx(sfx: SfxItem) {
 
 async function removeSfx(id: string) {
   try {
-    await editorApi.deleteSfx(episodeId.value, id)
+    await editorApi.deleteSfx(episodeId, id)
   } catch (err) {
     console.error('删除音效失败:', err)
   }
@@ -322,7 +331,7 @@ async function removeSfx(id: string) {
 
 async function addFromLibrary(sfx: { name: string; category: string }) {
   try {
-    const res = await editorApi.addSfxFromLibrary(episodeId.value, {
+    const res = await editorApi.addSfxFromLibrary(episodeId, {
       name: sfx.name,
       category: sfx.category,
     })
@@ -349,7 +358,7 @@ async function addFromLibrary(sfx: { name: string; category: string }) {
 
 async function applyMix() {
   try {
-    await editorApi.updateMixLevels(episodeId.value, {
+    await editorApi.updateMixLevels(episodeId, {
       bgm: mixLevels.bgm,
       voice: mixLevels.voice,
       ambient: mixLevels.ambient,

@@ -60,9 +60,11 @@ fi
 
 echo "[5/5] Stopping PostgreSQL …"
 if command -v pg_ctlcluster &>/dev/null; then
+    pg_ctlcluster 16 main stop 2>/dev/null || \
     pg_ctlcluster 17 main stop 2>/dev/null || true
     echo "  ✓ PostgreSQL stopped"
 elif command -v pg_ctl &>/dev/null; then
+    pg_ctl -D /var/lib/postgresql/16/main stop 2>/dev/null || \
     pg_ctl -D /var/lib/postgresql/17/main stop 2>/dev/null || true
     echo "  ✓ PostgreSQL stopped"
 else

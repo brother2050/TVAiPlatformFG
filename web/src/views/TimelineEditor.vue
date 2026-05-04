@@ -194,11 +194,13 @@ import {
   ChatDotSquare, Bell, Close,
 } from '@element-plus/icons-vue'
 import { useTimelineStore } from '@/stores/timeline'
+import { projectApi } from '@/api/project'
 
 const route = useRoute()
 const projectId = route.params.id as string
 const timelineStore = useTimelineStore()
 const timelineRef = ref<HTMLElement>()
+let episodeId = ''
 
 const zoom = ref(1)
 const pxPerSec = 60
@@ -413,8 +415,13 @@ async function saveTimelineState() {
   }
 }
 
-onMounted(() => {
-  timelineStore.fetchScenes(projectId)
+onMounted(async () => {
+  const res = await projectApi.getEpisodes(projectId)
+  const episodes = res.data.data
+  if (episodes && episodes.length > 0) {
+    episodeId = episodes[0].id
+    timelineStore.fetchScenes(episodeId)
+  }
 })
 
 onUnmounted(() => {

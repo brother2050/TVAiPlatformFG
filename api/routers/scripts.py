@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from api.models.base import get_db
 from api.models.script import Scene, Shot, ShotUpdate, ShotOut, SceneOut
-from api.models.project import Episode
+from api.models.project import Episode, Project
 from api.routers import ApiResponse, success, error
 
 router = APIRouter(prefix="/api", tags=["scripts"])
@@ -25,6 +25,33 @@ async def generate_script(episode_id: str, db: AsyncSession = Depends(get_db)) -
         raise HTTPException(status_code=404, detail="Episode not found")
     # TODO: integrate with Dify / LLM service
     return success({"status": "queued", "message": "Script generation queued"})
+
+
+@router.get("/projects/{project_id}/script", response_model=ApiResponse)
+async def get_project_script(project_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Get all scenes (with shots) for a project - returns scenes from all episodes."""
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    # Get all episodes for this project
+    result = await db.execute(
+        select(Episode).where(Episode.project_id == project_id).order_by(Episode.episode_number)
+    )
+    episodes = result.scalars().all()
+    if not episodes:
+        return success([])
+    # Get scenes from all episodes
+    all_scenes = []
+    for episode in episodes:
+        result = await db.execute(
+            select(Scene)
+            .where(Scene.episode_id == episode.id)
+            .options(selectinload(Scene.shots))
+            .order_by(Scene.scene_number)
+        )
+        scenes = result.scalars().all()
+        all_scenes.extend(scenes)
+    return success([SceneOut.model_validate(s).model_dump() for s in all_scenes])
 
 
 @router.get("/episodes/{episode_id}/script", response_model=ApiResponse)

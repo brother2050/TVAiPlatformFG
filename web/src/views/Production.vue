@@ -158,6 +158,7 @@ import { ArrowLeft, VideoPlay, Tickets } from '@element-plus/icons-vue'
 import { useProductionStore } from '@/stores/production'
 import { useProjectStore } from '@/stores/project'
 import { PRODUCTION_STAGES, type ProductionStage } from '@/api/production'
+import { projectApi } from '@/api/project'
 
 const route = useRoute()
 const projectId = route.params.id as string
@@ -349,13 +350,20 @@ function viewError(stageKey: string) {
 onMounted(async () => {
   const res = await projectStore.fetchProject(projectId)
   if (res) {
-    episodes.value = Array.from({ length: res.total_episodes }, (_, i) => ({
-      id: `ep-${i + 1}`,
-      episode_number: i + 1,
-      title: '',
-    }))
+    // 先获取 episodes 列表
+    const epRes = await projectApi.getEpisodes(projectId)
+    const episodeList = epRes.data.data
+    if (episodeList && episodeList.length > 0) {
+      episodes.value = episodeList
+      productionStore.fetchTasks(episodeList[0].id)
+    } else {
+      episodes.value = Array.from({ length: res.total_episodes }, (_, i) => ({
+        id: `ep-${i + 1}`,
+        episode_number: i + 1,
+        title: '',
+      }))
+    }
   }
-  productionStore.fetchTasks(projectId)
 })
 </script>
 

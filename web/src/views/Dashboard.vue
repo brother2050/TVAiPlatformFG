@@ -86,23 +86,39 @@
           <el-input v-model="form.title" placeholder="输入短剧名称" maxlength="200" show-word-limit />
         </el-form-item>
         <el-form-item label="题材" prop="genre">
-          <el-select v-model="form.genre" placeholder="选择题材" filterable allow-create>
-            <el-option label="都市爱情" value="都市爱情" />
-            <el-option label="古装宫斗" value="古装宫斗" />
-            <el-option label="悬疑推理" value="悬疑推理" />
-            <el-option label="科幻未来" value="科幻未来" />
-            <el-option label="校园青春" value="校园青春" />
-            <el-option label="奇幻冒险" value="奇幻冒险" />
-            <el-option label="喜剧搞笑" value="喜剧搞笑" />
+          <el-select v-model="form.genre" placeholder="选择或自定义题材" filterable allow-create>
+            <el-option label="都市" value="urban" />
+            <el-option label="古装" value="historical" />
+            <el-option label="科幻" value="scifi" />
+            <el-option label="玄幻" value="fantasy" />
+            <el-option label="悬疑" value="mystery" />
+            <el-option label="喜剧" value="comedy" />
+            <el-option label="爱情" value="romance" />
+            <el-option label="动作" value="action" />
+            <el-option label="冒险" value="adventure" />
+            <el-option label="奇幻" value="magical" />
+            <el-option label="校园" value="school" />
+            <el-option label="战争" value="war" />
+            <el-option label="恐怖" value="horror" />
+            <el-option label="运动" value="sports" />
           </el-select>
         </el-form-item>
         <el-form-item label="画风" prop="style">
-          <el-select v-model="form.style" placeholder="选择画风" filterable allow-create>
-            <el-option label="写实" value="写实" />
-            <el-option label="动漫" value="动漫" />
-            <el-option label="水彩" value="水彩" />
-            <el-option label="赛博朋克" value="赛博朋克" />
-            <el-option label="像素" value="像素" />
+          <el-select v-model="form.style" placeholder="选择或自定义画风" filterable allow-create>
+            <el-option label="日系动漫" value="anime" />
+            <el-option label="写实" value="realistic" />
+            <el-option label="水彩" value="watercolor" />
+            <el-option label="油画" value="oil_painting" />
+            <el-option label="赛博朋克" value="cyberpunk" />
+            <el-option label="像素" value="pixel" />
+            <el-option label="国风" value="chinese_style" />
+            <el-option label="欧美卡通" value="cartoon_us" />
+            <el-option label="二次元" value="2d_anime" />
+            <el-option label="3D渲染" value="3d_render" />
+            <el-option label="扁平" value="flat" />
+            <el-option label="厚涂" value="thick_paint" />
+            <el-option label="素描" value="sketch" />
+            <el-option label="水墨" value="ink_wash" />
           </el-select>
         </el-form-item>
         <el-form-item label="集数" prop="total_episodes">

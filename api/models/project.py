@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -61,7 +61,8 @@ class Episode(Base):
 # ---------------------------------------------------------------------------
 
 class ProjectGlobalSettings(BaseModel):
-    art_style: str = ""
+    genre: str = ""                    # 题材/类型: 都市、古装、科幻、玄幻、悬疑、喜剧、爱情、动作、冒险、奇幻、自定义
+    art_style: str = ""                # 画风: 日系动漫、写实、水彩、像素、赛博朋克、国风、欧美卡通、二次元、3D渲染、自定义
     color_palette: str = ""
     narrative_pace: str = ""
     target_audience: str = ""
@@ -70,6 +71,27 @@ class ProjectGlobalSettings(BaseModel):
     subtitle_style: str = ""
     custom_dimensions: dict[str, str] = Field(default_factory=dict)
     global_prompt_prefix: str = ""
+
+    @model_validator(mode='before')
+    @classmethod
+    def fill_defaults(cls, values):
+        if isinstance(values, dict):
+            defaults = {
+                'genre': '',
+                'art_style': '',
+                'color_palette': '',
+                'narrative_pace': '',
+                'target_audience': '',
+                'overall_mood': '',
+                'music_style': '',
+                'subtitle_style': '',
+                'custom_dimensions': {},
+                'global_prompt_prefix': '',
+            }
+            for key, default in defaults.items():
+                if key not in values:
+                    values[key] = default
+        return values
 
 
 class ProjectCreate(BaseModel):

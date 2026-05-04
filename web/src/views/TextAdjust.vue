@@ -151,12 +151,14 @@ import { ArrowLeft, ArrowDown, VideoPlay, RefreshRight, Delete } from '@element-
 import { useTimelineStore } from '@/stores/timeline'
 import { useCharacterStore } from '@/stores/character'
 import { editorApi } from '@/api/editor'
+import { projectApi } from '@/api/project'
 import type { Dialogue, Scene } from '@/api'
 
 const route = useRoute()
 const projectId = route.params.id as string
 const timelineStore = useTimelineStore()
 const characterStore = useCharacterStore()
+let episodeId = ''
 
 const selectedIds = ref<string[]>([])
 const narrationText = ref('')
@@ -313,8 +315,13 @@ function applyBatchParam() {
   ElMessage.success(`已更新 ${targets.length} 条台词`)
 }
 
-onMounted(() => {
-  timelineStore.fetchScenes(projectId)
+onMounted(async () => {
+  const res = await projectApi.getEpisodes(projectId)
+  const episodes = res.data.data
+  if (episodes && episodes.length > 0) {
+    episodeId = episodes[0].id
+    timelineStore.fetchScenes(episodeId)
+  }
   characterStore.fetchCharacters(projectId)
 })
 </script>

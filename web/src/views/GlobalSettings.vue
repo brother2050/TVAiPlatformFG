@@ -21,15 +21,42 @@
       <el-form label-width="100px" class="settings-form">
         <el-row :gutter="24">
           <el-col :span="12">
+            <el-form-item label="题材">
+              <el-select v-model="settings.genre" filterable allow-create placeholder="选择或自定义题材">
+                <el-option label="都市" value="urban" />
+                <el-option label="古装" value="historical" />
+                <el-option label="科幻" value="scifi" />
+                <el-option label="玄幻" value="fantasy" />
+                <el-option label="悬疑" value="mystery" />
+                <el-option label="喜剧" value="comedy" />
+                <el-option label="爱情" value="romance" />
+                <el-option label="动作" value="action" />
+                <el-option label="冒险" value="adventure" />
+                <el-option label="奇幻" value="magical" />
+                <el-option label="校园" value="school" />
+                <el-option label="战争" value="war" />
+                <el-option label="恐怖" value="horror" />
+                <el-option label="运动" value="sports" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item label="画风">
               <el-select v-model="settings.art_style" filterable allow-create placeholder="选择或自定义画风">
+                <el-option label="日系动漫" value="anime" />
                 <el-option label="写实" value="realistic" />
-                <el-option label="动漫" value="anime" />
                 <el-option label="水彩" value="watercolor" />
                 <el-option label="油画" value="oil_painting" />
                 <el-option label="赛博朋克" value="cyberpunk" />
                 <el-option label="像素" value="pixel" />
+                <el-option label="国风" value="chinese_style" />
+                <el-option label="欧美卡通" value="cartoon_us" />
+                <el-option label="二次元" value="2d_anime" />
+                <el-option label="3D渲染" value="3d_render" />
                 <el-option label="扁平" value="flat" />
+                <el-option label="厚涂" value="thick_paint" />
+                <el-option label="素描" value="sketch" />
+                <el-option label="水墨" value="ink_wash" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -197,6 +224,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft, Check, Plus, Delete, Film, ArrowDown, Setting } from '@element-plus/icons-vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useTimelineStore } from '@/stores/timeline'
+import { projectApi } from '@/api/project'
 import type { ProjectGlobalSettings, Scene, SceneOverride } from '@/api'
 
 const route = useRoute()
@@ -204,11 +232,13 @@ const router = useRouter()
 const projectId = route.params.id as string
 const settingsStore = useSettingsStore()
 const timelineStore = useTimelineStore()
+let episodeId = ''
 
 const saving = ref(false)
 const expandedScenes = ref<string[]>([])
 
 const settings = reactive<ProjectGlobalSettings>({
+  genre: '',
   art_style: '',
   color_palette: '',
   narrative_pace: '',
@@ -295,7 +325,12 @@ onMounted(async () => {
       }))
     }
   }
-  await timelineStore.fetchScenes(projectId)
+  const res = await projectApi.getEpisodes(projectId)
+  const episodes = res.data.data
+  if (episodes && episodes.length > 0) {
+    episodeId = episodes[0].id
+    await timelineStore.fetchScenes(episodeId)
+  }
   scenes.value = timelineStore.scenes
 })
 </script>

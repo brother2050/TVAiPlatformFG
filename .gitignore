@@ -101,3 +101,6 @@ config.local.yml
 *.rdb
 # TTS cache
 tts/cache/
+
+# project
+data

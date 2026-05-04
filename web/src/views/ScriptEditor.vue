@@ -185,6 +185,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft, Plus, MagicStick, Document, Film, View, Delete } from '@element-plus/icons-vue'
 import { useTimelineStore } from '@/stores/timeline'
 import { useCharacterStore } from '@/stores/character'
+import { projectApi } from '@/api/project'
 import type { Dialogue } from '@/api'
 
 const route = useRoute()
@@ -195,6 +196,7 @@ const characterStore = useCharacterStore()
 
 const generating = ref(false)
 const selectedNode = ref<{ id: string; type: string; label: string } | null>(null)
+let episodeId = ''
 const characters = computed(() => characterStore.characters)
 
 interface OutlineNode {
@@ -292,8 +294,14 @@ function splitToStoryboard() {
   router.push({ name: 'Storyboard', params: { id: projectId } })
 }
 
-onMounted(() => {
-  timelineStore.fetchScenes(projectId)
+onMounted(async () => {
+  // 先获取 episodes 列表，取第一个 episode 的 id
+  const res = await projectApi.getEpisodes(projectId)
+  const episodes = res.data.data
+  if (episodes && episodes.length > 0) {
+    episodeId = episodes[0].id
+    timelineStore.fetchScenes(episodeId)
+  }
   characterStore.fetchCharacters(projectId)
 })
 </script>

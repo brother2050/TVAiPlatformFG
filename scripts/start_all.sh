@@ -11,6 +11,11 @@ source .env 2>/dev/null || true
 # ---- Auto-create required directories ----
 mkdir -p data/logs data/redis storage/media
 
+# ---- Ensure config.yaml exists in api/ ----
+if [[ -f "$PROJECT_ROOT/config.yaml" ]]; then
+    cp "$PROJECT_ROOT/config.yaml" "$PROJECT_ROOT/api/config.yaml"
+fi
+
 echo "============================================"
 echo "  TVAiPlatform — Starting all services"
 echo "============================================"
@@ -21,11 +26,20 @@ if command -v pg_isready &>/dev/null && pg_isready -q 2>/dev/null; then
     echo "  ✓ PostgreSQL already running"
 else
     if command -v pg_ctlcluster &>/dev/null; then
+        # Try PostgreSQL 16 first (common version)
+        pg_ctlcluster 16 main start 2>/dev/null || \
         pg_ctlcluster 17 main start 2>/dev/null || true
     elif command -v pg_ctl &>/dev/null; then
+        pg_ctl -D /var/lib/postgresql/16/main start 2>/dev/null || \
         pg_ctl -D /var/lib/postgresql/17/main start 2>/dev/null || true
     fi
     echo "  ✓ PostgreSQL started"
+fi
+
+# ---- Setup PostgreSQL database and user ----
+if command -v psql &>/dev/null; then
+    PGPASSWORD=postgres psql -h localhost -U postgres -c "SELECT 1;" >/dev/null 2>&1 || true
+    PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE tvai;" >/dev/null 2>&1 || true
 fi
 
 # ---- 2. Redis ----

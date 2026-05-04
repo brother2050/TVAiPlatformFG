@@ -94,6 +94,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Picture, Edit, Rank } from '@element-plus/icons-vue'
 import { useTimelineStore } from '@/stores/timeline'
 import { useCharacterStore } from '@/stores/character'
+import { projectApi } from '@/api/project'
 import type { Shot } from '@/api'
 
 const route = useRoute()
@@ -101,6 +102,7 @@ const router = useRouter()
 const projectId = route.params.id as string
 const timelineStore = useTimelineStore()
 const characterStore = useCharacterStore()
+let episodeId = ''
 
 const filterSceneId = ref('')
 const showDetail = ref(false)
@@ -171,8 +173,13 @@ function onDrop(e: DragEvent, dropIndex: number) {
   dragIndex.value = -1
 }
 
-onMounted(() => {
-  timelineStore.fetchScenes(projectId)
+onMounted(async () => {
+  const res = await projectApi.getEpisodes(projectId)
+  const episodes = res.data.data
+  if (episodes && episodes.length > 0) {
+    episodeId = episodes[0].id
+    timelineStore.fetchScenes(episodeId)
+  }
   characterStore.fetchCharacters(projectId)
 })
 </script>

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.config import settings
 from api.models.base import close_db, init_db
-from api.routers import projects, characters, scripts, templates, settings as settings_router, production, editor, media, health, export
+from api.routers import projects, characters, scripts, templates, settings as settings_router, production, editor, media, health, export, episodes
 
 
 @asynccontextmanager
@@ -68,6 +68,7 @@ app.include_router(editor.router)
 app.include_router(media.router)
 app.include_router(health.router)
 app.include_router(export.router)
+app.include_router(episodes.router)
 
 # ── Static Files ────────────────────────────────────────────────────────────
 

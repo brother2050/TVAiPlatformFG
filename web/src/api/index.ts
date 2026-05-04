@@ -61,7 +61,8 @@ export interface CreateProjectDto {
 }
 
 export interface ProjectGlobalSettings {
-  art_style: string
+  genre: string                    // 题材/类型
+  art_style: string                // 画风
   color_palette: string
   narrative_pace: string
   target_audience: string
