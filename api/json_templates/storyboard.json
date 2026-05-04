@@ -1,0 +1,67 @@
+{
+  "name": "分镜脚本",
+  "slug": "storyboard",
+  "category": "storyboard",
+  "description": "用于将剧本拆解为分镜的模板，定义每个镜头的视觉元素",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "scenes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "scene_number": { "type": "integer" },
+            "location": { "type": "string" },
+            "time_of_day": { "type": "string" },
+            "weather": { "type": "string" },
+            "atmosphere": { "type": "string" },
+            "characters_present": { "type": "array", "items": { "type": "string" } },
+            "shots": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "shot_number": { "type": "integer" },
+                  "shot_type": { "type": "string", "enum": ["closeup", "medium", "wide", "overhead"] },
+                  "camera_movement": { "type": "string", "enum": ["static", "pan", "tilt", "zoom", "tracking"] },
+                  "duration_sec": { "type": "number" },
+                  "visual_description": { "type": "string" },
+                  "character_actions": { "type": "object", "additionalProperties": { "type": "string" } },
+                  "emotion_tags": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["shot_number", "shot_type", "visual_description"]
+              }
+            }
+          },
+          "required": ["scene_number", "shots"]
+        }
+      }
+    },
+    "required": ["scenes"]
+  },
+  "example": {
+    "scenes": [
+      {
+        "scene_number": 1,
+        "location": "城市街头",
+        "time_of_day": "night",
+        "weather": "rainy",
+        "atmosphere": "tense",
+        "characters_present": ["char_001"],
+        "shots": [
+          {
+            "shot_number": 1,
+            "shot_type": "wide",
+            "camera_movement": "static",
+            "duration_sec": 3.0,
+            "visual_description": "雨夜的城市街道，霓虹灯映在水洼中",
+            "character_actions": {},
+            "emotion_tags": ["lonely", "mysterious"]
+          }
+        ]
+      }
+    ]
+  },
+  "system_prompt_suffix": "请将剧本拆解为详细的分镜。注意镜头语言的多样性，合理安排景别和运镜方式。"
+}

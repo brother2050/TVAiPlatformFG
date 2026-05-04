@@ -1,0 +1,45 @@
+{
+  "name": "剧本大纲",
+  "slug": "script_outline",
+  "category": "script",
+  "description": "用于生成剧本大纲的模板，定义故事结构与情节走向",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "title": { "type": "string", "description": "剧集标题" },
+      "synopsis": { "type": "string", "description": "剧情梗概" },
+      "theme": { "type": "string", "description": "主题" },
+      "conflict": { "type": "string", "description": "核心冲突" },
+      "resolution": { "type": "string", "description": "结局走向" },
+      "acts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "act_number": { "type": "integer" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "key_events": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "required": ["title", "synopsis", "acts"]
+  },
+  "example": {
+    "title": "第一集：命运的相遇",
+    "synopsis": "主角在雨夜意外邂逅了改变命运的人",
+    "theme": "命运与选择",
+    "conflict": "主角面临两难抉择",
+    "resolution": "开放式结局，为下一集埋下伏笔",
+    "acts": [
+      {
+        "act_number": 1,
+        "title": "开端",
+        "summary": "主角的日常生活被打破",
+        "key_events": ["收到神秘来信", "决定踏上旅程"]
+      }
+    ]
+  },
+  "system_prompt_suffix": "请严格按照schema生成JSON格式的剧本大纲。确保情节连贯、冲突明确、节奏合理。"
+}

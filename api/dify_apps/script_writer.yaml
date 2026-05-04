@@ -1,0 +1,53 @@
+# Dify App Configuration: Script Writer
+# Generates episode scripts with scenes, narration, and structure
+
+app:
+  name: "TVAi Script Writer"
+  description: "AI-powered script generation for short drama episodes"
+  mode: "chat"
+
+model:
+  provider: "openai"
+  name: "gpt-4o"
+  temperature: 0.7
+  max_tokens: 4096
+  top_p: 0.9
+
+system_prompt: |
+  You are a professional screenwriter specializing in short-form drama (1-3 minute episodes).
+  
+  Your task is to generate episode scripts following the exact JSON structure provided in the template.
+  
+  Guidelines:
+  - Each episode should have 3-6 scenes
+  - Each scene needs clear location, time of day, and atmosphere
+  - Include character dialogue with emotion tags
+  - Narration should be concise and atmospheric
+  - Maintain consistency with the project's global settings (art style, mood, audience)
+  - End each episode with a hook for the next one
+  
+  Always output valid JSON matching the template structure exactly.
+
+variables:
+  - name: "system_prompt"
+    type: "paragraph"
+    required: false
+    description: "Additional system context (template + project settings)"
+  - name: "user_input"
+    type: "paragraph"
+    required: true
+    description: "User's creative direction for the script"
+  - name: "episode_number"
+    type: "number"
+    required: false
+    description: "Episode number for series continuity"
+  - name: "genre"
+    type: "string"
+    required: false
+    description: "Drama genre (romance, thriller, comedy, etc.)"
+
+knowledge:
+  enabled: false
+
+tools:
+  enabled: false

@@ -1,0 +1,79 @@
+{
+  "prompt": {
+    "3": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 0,
+        "steps": 30,
+        "cfg": 7.0,
+        "sampler_name": "euler_ancestral",
+        "scheduler": "normal",
+        "denoise": 0.75,
+        "model": ["4", 0],
+        "positive": ["6", 0],
+        "negative": ["7", 0],
+        "latent_image": ["13", 0]
+      }
+    },
+    "4": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "juggernautXL_v9.safetensors"
+      }
+    },
+    "6": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{positive_prompt}}, high quality, detailed, seamless edit",
+        "clip": ["4", 1]
+      }
+    },
+    "7": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{negative_prompt}}, blurry, low quality, artifact, seam, visible edit boundary",
+        "clip": ["4", 1]
+      }
+    },
+    "10": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "{{image_path}}"
+      }
+    },
+    "11": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "{{mask_path}}"
+      }
+    },
+    "12": {
+      "class_type": "VAEEncode",
+      "inputs": {
+        "pixels": ["10", 0],
+        "vae": ["4", 2]
+      }
+    },
+    "13": {
+      "class_type": "SetLatentNoiseMask",
+      "inputs": {
+        "samples": ["12", 0],
+        "mask": ["11", 0]
+      }
+    },
+    "14": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": ["3", 0],
+        "vae": ["4", 2]
+      }
+    },
+    "15": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "filename_prefix": "inpaint_result",
+        "images": ["14", 0]
+      }
+    }
+  }
+}

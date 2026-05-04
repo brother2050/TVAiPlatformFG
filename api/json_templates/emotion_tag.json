@@ -1,0 +1,33 @@
+{
+  "name": "情感标签",
+  "slug": "emotion_tag",
+  "category": "dialogue",
+  "description": "用于标记和分析角色情感状态的模板",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "character_id": { "type": "string" },
+      "scene_context": { "type": "string" },
+      "primary_emotion": { "type": "string", "enum": ["happy", "sad", "angry", "fearful", "surprised", "calm", "whisper", "disgusted", "contemptuous"] },
+      "emotion_intensity": { "type": "number", "minimum": 0, "maximum": 1 },
+      "secondary_emotions": { "type": "array", "items": { "type": "string" } },
+      "facial_expression": { "type": "string" },
+      "body_language": { "type": "string" },
+      "voice_cue": { "type": "string" },
+      "inner_thought": { "type": "string" }
+    },
+    "required": ["character_id", "primary_emotion", "emotion_intensity"]
+  },
+  "example": {
+    "character_id": "char_001",
+    "scene_context": "得知好友即将远行",
+    "primary_emotion": "sad",
+    "emotion_intensity": 0.7,
+    "secondary_emotions": ["nostalgic", "anxious"],
+    "facial_expression": "眉头微蹙，嘴角下垂",
+    "body_language": "双手不自觉地握紧",
+    "voice_cue": "声音微微颤抖，语速放慢",
+    "inner_thought": "也许这就是最后一次见面了"
+  },
+  "system_prompt_suffix": "请根据角色性格和场景上下文，精确描述情感状态。注意情感的层次感和细微变化。"
+}

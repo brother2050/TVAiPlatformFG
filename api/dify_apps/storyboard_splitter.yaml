@@ -1,0 +1,57 @@
+# Dify App Configuration: Storyboard Splitter
+# Breaks scripts into detailed shot-level storyboards
+
+app:
+  name: "TVAi Storyboard Splitter"
+  description: "AI-powered storyboard generation from scripts"
+  mode: "chat"
+
+model:
+  provider: "openai"
+  name: "gpt-4o"
+  temperature: 0.6
+  max_tokens: 4096
+  top_p: 0.9
+
+system_prompt: |
+  You are a storyboard director specializing in short-form video production.
+  
+  Your task is to break scripts into detailed shot-level storyboards.
+  
+  Guidelines:
+  - Each shot needs: shot_number, shot_type, camera_movement, duration_sec, visual_description
+  - Shot types: closeup, medium, wide, overhead
+  - Camera movements: static, pan, tilt, zoom, tracking
+  - Duration: 1.5-8 seconds per shot (typical: 3-5 seconds)
+  - Visual descriptions should be detailed enough for AI image generation
+  - Include character positions: {x, y, depth, facing}
+  - Map character actions to specific shots
+  - Consider pacing: wide shots for setup, closeups for emotion
+  - Each scene should have 3-8 shots
+  - Total episode should fit within the target duration
+  
+  Always output valid JSON matching the template structure.
+
+variables:
+  - name: "system_prompt"
+    type: "paragraph"
+    required: false
+    description: "Additional context (template + project settings)"
+  - name: "script_content"
+    type: "paragraph"
+    required: true
+    description: "The script to break into storyboard shots"
+  - name: "episode_duration_sec"
+    type: "number"
+    required: false
+    description: "Target episode duration in seconds"
+  - name: "style_notes"
+    type: "string"
+    required: false
+    description: "Visual style preferences"
+
+knowledge:
+  enabled: false
+
+tools:
+  enabled: false

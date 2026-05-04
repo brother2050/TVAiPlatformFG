@@ -1,0 +1,72 @@
+{
+  "name": "角色设定",
+  "slug": "character_profile",
+  "category": "character",
+  "description": "用于生成角色详细设定的模板，包含外貌、体型、声音等参数",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "gender": { "type": "string", "enum": ["male", "female", "other"] },
+      "age": { "type": "integer" },
+      "personality": { "type": "string" },
+      "background": { "type": "string" },
+      "appearance": {
+        "type": "object",
+        "properties": {
+          "face_shape": { "type": "string" },
+          "eye_color": { "type": "string" },
+          "hair_style": { "type": "string" },
+          "hair_color": { "type": "string" },
+          "skin_tone": { "type": "string" },
+          "distinctive_features": { "type": "array", "items": { "type": "string" } },
+          "expression_bias": { "type": "string" }
+        }
+      },
+      "body": {
+        "type": "object",
+        "properties": {
+          "height_cm": { "type": "number" },
+          "weight_kg": { "type": "number" },
+          "body_type": { "type": "string" }
+        }
+      },
+      "voice": {
+        "type": "object",
+        "properties": {
+          "tone": { "type": "string" },
+          "speed": { "type": "string" },
+          "pitch": { "type": "string" }
+        }
+      }
+    },
+    "required": ["name", "gender", "appearance"]
+  },
+  "example": {
+    "name": "林小雨",
+    "gender": "female",
+    "age": 22,
+    "personality": "活泼开朗，内心细腻",
+    "background": "大学刚毕业，对未来充满期待",
+    "appearance": {
+      "face_shape": "oval",
+      "eye_color": "dark brown",
+      "hair_style": "long straight",
+      "hair_color": "black",
+      "skin_tone": "fair",
+      "distinctive_features": ["左眼角小痣"],
+      "expression_bias": "slight smile"
+    },
+    "body": {
+      "height_cm": 165,
+      "weight_kg": 52,
+      "body_type": "slim"
+    },
+    "voice": {
+      "tone": "warm",
+      "speed": "normal",
+      "pitch": "medium-high"
+    }
+  },
+  "system_prompt_suffix": "请根据故事背景生成详细的角色设定。确保外貌描述具体、性格鲜明、有辨识度。"
+}

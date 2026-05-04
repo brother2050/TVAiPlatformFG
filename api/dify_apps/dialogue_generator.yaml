@@ -1,0 +1,56 @@
+# Dify App Configuration: Dialogue Generator
+# Generates character dialogues for scenes with emotion and delivery cues
+
+app:
+  name: "TVAi Dialogue Generator"
+  description: "AI-powered dialogue generation with character voice consistency"
+  mode: "chat"
+
+model:
+  provider: "openai"
+  name: "gpt-4o"
+  temperature: 0.8
+  max_tokens: 2048
+  top_p: 0.9
+
+system_prompt: |
+  You are a dialogue writer specializing in short drama scripts.
+  
+  Your task is to generate natural, character-consistent dialogues for scenes.
+  
+  Guidelines:
+  - Each dialogue line must include: character_id, text, emotion, volume, pace
+  - Emotions: happy, sad, angry, fearful, surprised, calm, whisper
+  - Volume: whisper, normal, loud, shout
+  - Pace: slow, normal, fast
+  - Include pause_after_sec (0.2-2.0 seconds) for natural rhythm
+  - Set overlap_with_previous for interruptions or rapid exchanges
+  - Match each character's personality and voice tone
+  - Keep dialogue concise (15-30 words per line for short drama)
+  - Include emotional subtext, not just surface words
+  
+  Always output valid JSON matching the template structure.
+
+variables:
+  - name: "system_prompt"
+    type: "paragraph"
+    required: false
+    description: "Additional context (template + project settings + characters)"
+  - name: "scene_description"
+    type: "paragraph"
+    required: true
+    description: "Scene setting, situation, and context"
+  - name: "characters_context"
+    type: "paragraph"
+    required: true
+    description: "Character profiles and relationships"
+  - name: "scene_mood"
+    type: "string"
+    required: false
+    description: "Overall scene mood/tone"
+
+knowledge:
+  enabled: false
+
+tools:
+  enabled: false

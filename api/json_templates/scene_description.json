@@ -1,0 +1,33 @@
+{
+  "name": "场景描述",
+  "slug": "scene_description",
+  "category": "script",
+  "description": "用于生成场景环境描述的模板，包含地点、时间、氛围等",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "location": { "type": "string" },
+      "time_of_day": { "type": "string", "enum": ["dawn", "morning", "noon", "afternoon", "dusk", "evening", "night"] },
+      "weather": { "type": "string", "enum": ["clear", "cloudy", "rainy", "snowy", "foggy", "stormy", "windy"] },
+      "atmosphere": { "type": "string" },
+      "background_music": { "type": "string" },
+      "ambient_sound": { "type": "string" },
+      "visual_details": { "type": "string" },
+      "color_palette": { "type": "string" },
+      "lighting": { "type": "string" }
+    },
+    "required": ["location", "time_of_day"]
+  },
+  "example": {
+    "location": "古镇石桥",
+    "time_of_day": "dusk",
+    "weather": "cloudy",
+    "atmosphere": "宁静而略带忧伤",
+    "background_music": "轻柔的古筝旋律",
+    "ambient_sound": "远处传来的流水声和鸟鸣",
+    "visual_details": "石桥上布满青苔，河面倒映着暮色",
+    "color_palette": "暖色调为主，橙黄色渐变",
+    "lighting": "柔和的夕阳光线从侧面照射"
+  },
+  "system_prompt_suffix": "请生成富有画面感的场景描述。注意光影、色彩、声音等多感官细节。"
+}

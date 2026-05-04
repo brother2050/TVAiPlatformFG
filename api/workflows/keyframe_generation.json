@@ -1,0 +1,84 @@
+{
+  "prompt": {
+    "3": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 0,
+        "steps": 30,
+        "cfg": 7.0,
+        "sampler_name": "euler_ancestral",
+        "scheduler": "normal",
+        "denoise": 1.0,
+        "model": ["4", 0],
+        "positive": ["6", 0],
+        "negative": ["7", 0],
+        "latent_image": ["5", 0]
+      }
+    },
+    "4": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "juggernautXL_v9.safetensors"
+      }
+    },
+    "5": {
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "width": 1280,
+        "height": 720,
+        "batch_size": 1
+      }
+    },
+    "6": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{positive_prompt}}, cinematic, film still, high quality, detailed, professional photography",
+        "clip": ["4", 1]
+      }
+    },
+    "7": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{negative_prompt}}, blurry, low quality, watermark, text, deformed, ugly, bad anatomy",
+        "clip": ["4", 1]
+      }
+    },
+    "8": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": ["3", 0],
+        "vae": ["4", 2]
+      }
+    },
+    "9": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "filename_prefix": "keyframe",
+        "images": ["8", 0]
+      }
+    },
+    "10": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "{{reference_image}}"
+      }
+    },
+    "11": {
+      "class_type": "IPAdapterApply",
+      "inputs": {
+        "weight": 0.7,
+        "noise": 0.0,
+        "weight_type": "linear",
+        "model": ["4", 0],
+        "ipadapter": ["12", 0],
+        "image": ["10", 0]
+      }
+    },
+    "12": {
+      "class_type": "IPAdapterModelLoader",
+      "inputs": {
+        "ipadapter_file": "ip-adapter-plus-face_sdxl_vit-h.safetensors"
+      }
+    }
+  }
+}

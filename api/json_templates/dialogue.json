@@ -1,0 +1,42 @@
+{
+  "name": "对话生成",
+  "slug": "dialogue",
+  "category": "dialogue",
+  "description": "用于生成角色对话的模板，包含情感、语速、音量等参数",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "dialogues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "character_id": { "type": "string" },
+            "text": { "type": "string" },
+            "emotion": { "type": "string", "enum": ["happy", "sad", "angry", "fearful", "surprised", "calm", "whisper"] },
+            "volume": { "type": "string", "enum": ["whisper", "normal", "loud", "shout"] },
+            "pace": { "type": "string", "enum": ["slow", "normal", "fast"] },
+            "pause_after_sec": { "type": "number" },
+            "overlap_with_previous": { "type": "boolean" }
+          },
+          "required": ["character_id", "text", "emotion"]
+        }
+      }
+    },
+    "required": ["dialogues"]
+  },
+  "example": {
+    "dialogues": [
+      {
+        "character_id": "char_001",
+        "text": "你为什么会在这里？",
+        "emotion": "surprised",
+        "volume": "normal",
+        "pace": "normal",
+        "pause_after_sec": 0.5,
+        "overlap_with_previous": false
+      }
+    ]
+  },
+  "system_prompt_suffix": "请根据角色性格和场景氛围生成自然的对话。注意情感表达和语气的准确性。"
+}
