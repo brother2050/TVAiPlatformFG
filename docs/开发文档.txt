@@ -1,0 +1,2976 @@
+TVAiPlatform 多集短剧生成平台 — 开发规格文档（完整版）
+ 
+版本: v1.0 日期: 2026-05-04 项目根目录: /workspace/TVAiPlatform 运行环境: Python 3.12 / Node.js 22 LTS / pnpm 9
+ 
+ 
+一、项目概述
+ 
+TVAiPlatform 是一个集成化 AI 短剧生成平台，整合 Dify（LLM 编排）、ComfyUI（图像/视频生成）及多种 AI 能力，实现从剧本到成片的全流程自动化生产。所有外部服务均支持本地部署或接入第三方云平台，用户可根据资源灵活选择。
+ 
+核心理念：AI 驱动生产 + 人工精细打磨。AI 负责批量生成初稿，人工对文本、图片、人声、背景音、视频等每个环节进行逐项调整与质量把控。
+ 
+1.1 核心价值
+ 
+能力	描述
+人物一致性	贯穿全剧的角色外貌、年龄、体型、服装、配饰严格一致，支持青/中/老年跨年龄演绎
+多角色同框	多人物交互场景，位置、遮挡、光影合理
+音画字同步	人声、背景音、字幕与视频帧精确对齐，情感对话自然
+连贯视频	镜头间平滑过渡，场景连贯不跳帧
+AI 驱动	剧本、图像、视频、语音等核心环节由 AI 自动生成初稿
+人工精修	每个环节均支持人工逐项微调——文本改词、图片修图、语音调参、音效替换、视频裁剪
+多集无限	支持任意集数，通过上下文压缩和分层摘要突破 token 限制
+模板可配	LLM 输出的 JSON 模板完全可由用户在界面上编辑和调整
+ 
+1.2 技术栈
+ 
+层级	技术	版本	说明
+运行时	Node.js	22.x LTS	前端构建运行环境
+包管理	pnpm	9.x	快速、磁盘高效的 Node 包管理器
+前端	Vue 3.5 + TypeScript 5.7 + Element Plus 2.9	3.5.13+ / 5.7.3 / 2.9.1	可视化编辑界面
+状态管理	Pinia 2.2	2.2.6	前端状态管理
+构建工具	Vite 6.0	6.0.x	前端构建与热更新
+路由	Vue Router 4.5	4.5.0	前端路由管理
+Python	CPython	3.12.x	后端运行时
+后端 API	FastAPI 0.115 + Pydantic 2.10	0.115.0 / 2.10.0	业务逻辑与编排
+ORM	SQLAlchemy 2.0	2.0.36	异步 PostgreSQL 访问
+AI 编排	Dify（本地部署 或 第三方平台）	—	LLM 剧本生成/角色对话
+图像生成	ComfyUI（本地部署 或 远程/云平台）	—	人物立绘/场景图/风格一致
+视频生成	ComfyUI + Wan2.2/LTX-2.3（本地或远程）	—	图生视频/文生视频
+语音合成	ChatTTS / CosyVoice / GPT-SoVITS（本地或第三方 API）	—	情感化角色配音
+字幕生成	WhisperX + 自研对齐	—	精确时间戳字幕
+音视频合成	FFmpeg 7.1	7.1.x	合流/转码/封装
+数据库	PostgreSQL 17 + Redis 7.4	17.x / 7.4.x	持久化 + 缓存/队列
+部署方式	Supervisor / systemd	—	统一进程管理
+ 
+1.3 版本兼容性矩阵
+ 
+组件	要求	说明
+Vue 3.5 ↔ TypeScript 5.7	vue-tsc 2.2 与 TS 5.7 严格配套	模板类型检查
+Vue 3.5 ↔ Element Plus 2.9	EPlus 2.9 要求 Vue ≥3.2	完全兼容
+Vue 3.5 ↔ Pinia 2.2	Pinia 2.2 要求 Vue ≥3.2	官方推荐组合
+Vite 6.0 ↔ @vitejs/plugin-vue 5.2	plugin-vue 5.x 同时支持 Vite 5 和 Vite 6	版本兼容
+FastAPI 0.115 ↔ Pydantic 2.10	FastAPI 0.111 起强依赖 Pydantic v2	须保持 Pydantic 2.x
+SQLAlchemy 2.0 ↔ asyncpg 0.30	SQLAlchemy 2.0 原生支持 asyncpg	异步 PostgreSQL 驱动
+SQLAlchemy 2.0 ↔ Alembic 1.14	Alembic 1.14 与 SQLAlchemy 2.0 配套	数据库迁移工具
+Python 3.12 ↔ 全部后端依赖	所有列出的包均已验证兼容	推荐 Python 3.12.8+
+ 
+ 
+二、系统架构
+ 
+2.1 整体架构图
+ 
+text
+text
+┌─────────────────────────────────────────────────────────────────┐
+│                   TVAiPlatform 前端 (Vue 3.5)                    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────┐ │
+│  │ 项目总览 │ │ 角色工坊 │ │ 剧本创作 │ │ 制片台  │ │ 成片  │ │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └───────┘ │
+│  ┌──────────┐ ┌──────────────────────────────────────────────┐  │
+│  │ 模板工坊 │ │   手工精修面板 (文本/图片/人声/背景音/视频)   │  │
+│  └──────────┘ └──────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐│
+│  │         人工输入区 (风格/画风/氛围/节奏/偏好等全局设定)       ││
+│  └──────────────────────────────────────────────────────────────┘│
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ HTTP/WS
+┌──────────────────────────▼──────────────────────────────────────┐
+│                    TVAiPlatform API (FastAPI 0.115)              │
+│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐  │
+│  │项目管理  │ │角色一致性 │ │ 生产管线 │ │ 音画字同步引擎    │  │
+│  │/集数管理 │ │ 管理器    │ │ Pipeline │ │ (SyncEngine)      │  │
+│  └─────────┘ └──────────┘ └──────────┘ └────────────────────┘  │
+│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐  │
+│  │剧本服务  │ │ComfyUI   │ │ 语音服务 │ │ FFmpeg 合成服务    │  │
+│  │(Dify调用)│ │ Runner   │ │(TTS/STT) │ │                    │  │
+│  └─────────┘ └──────────┘ └──────────┘ └────────────────────┘  │
+│  ┌─────────┐ ┌──────────┐ ┌──────────────────────────────────┐  │
+│  │模板管理  │ │上下文压缩 │ │ 手工编辑服务 (文本/图片/音视频) │  │
+│  │ 服务    │ │ 引擎     │ │                                  │  │
+│  └─────────┘ └──────────┘ └──────────────────────────────────┘  │
+└───┬────────────┬────────────┬────────────┬──────────────────────┘
+    │            │            │            │
+    ▼            ▼            ▼            ▼
+┌────────┐ ┌─────────┐ ┌────────┐ ┌────────┐
+│ Dify   │ │ComfyUI  │ │TTS/STT │ │FFmpeg  │
+│(本地/  │ │(本地/   │ │(本地/  │ │ 7.1    │
+│三方云) │ │远程/云) │ │三方云) │ │        │
+└────────┘ └─────────┘ └────────┘ └────────┘
+ 
+2.2 服务部署方式 — 本地 / 第三方平台灵活选择
+ 
+所有外部服务均支持两种模式：本地部署和接入第三方平台。通过 config.yaml 统一配置，切换只需修改地址与密钥。
+ 
+服务	本地部署	第三方平台	说明
+Dify	本地 Docker 容器	Dify Cloud / 自建远程实例	通过 API URL + API Key 接入
+ComfyUI	本地进程 (默认 8188)	远程 GPU 服务器 / RunComfy / ThinkDiffusion 等云服务	支持 http/https，自动适配
+TTS (ChatTTS)	本地进程 (默认 8090)	第三方 TTS API（如 FishAudio、MiniMax Speech）	通过引擎名切换
+TTS (CosyVoice)	本地进程 (默认 8091)	阿里云 CosyVoice API	本地/云端统一接口
+TTS (GPT-SoVITS)	本地进程 (默认 8092)	第三方托管实例	本地/云端统一接口
+LLM (Ollama)	本地进程 (默认 11434)	OpenAI API / DeepSeek API / 通义千问 API	Dify 后端模型，可替换
+PostgreSQL 17	本地进程 (5432)	云数据库（如阿里云 RDS、AWS RDS）	修改连接串即可
+Redis 7.4	本地进程 (6379)	云 Redis（如阿里云 Redis、AWS ElastiCache）	修改连接串即可
+FFmpeg 7.1	系统安装	—	纯本地工具，无需远程
+ 
+设计原则: 服务调用层对上层业务完全透明。无论是本地 http://127.0.0.1:8188 还是远程 https://comfyui.cloud.example.com，业务代码无需任何修改，仅通过配置切换。
+ 
+2.3 数据流 — AI 生成 + 人工精修
+ 
+text
+text
+用户输入主题/设定 + 全局风格偏好
+       │
+       ▼
+  Dify 剧本生成 ──→ 剧本结构化数据(JSON，由模板驱动)
+       │
+       ▼  ← 【人工精修: 修改台词/剧情/旁白】
+       │
+  角色一致性锁定 ──→ 角色 Reference Sheet(多视角图)
+       │
+       ▼  ← 【人工精修: 调整角色外貌/重新生成参考图】
+       │
+  分镜拆解 ──→ 分镜列表(场景描述+对话+动作)
+       │
+       ▼  ← 【人工精修: 调整分镜/镜头描述/构图】
+       │
+       ├──→ ComfyUI 图像生成 ──→ 关键帧图片(自动压缩存储)
+       │         │
+       │         ▼  ← 【人工精修: 修图/重绘/局部替换】
+       │         │
+       │    ComfyUI 视频生成 ──→ 片段视频(自动压缩存储)
+       │         │
+       │         ▼  ← 【人工精修: 裁剪/补帧/重生成】
+       │
+       ├──→ TTS 语音合成 ──→ 角色配音(WAV → 自动转 FLAC)
+       │         │
+       │         ▼  ← 【人工精修: 调语速/音调/情感/重录单句】
+       │
+       ├──→ WhisperX 字幕生成 ──→ SRT/VTT
+       │         │
+       │         ▼  ← 【人工精修: 校对文字/调整时间轴】
+       │
+       ▼
+  音画字同步引擎 ──→ 时间轴对齐
+       │
+       ▼  ← 【人工精修: 拖拽调整各轨道对齐】
+       │
+  FFmpeg 合成 ──→ 最终视频(自动压缩编码)
+       │
+       ▼
+  质量检查 ──→ 输出 / 回退调整
+ 
+ 
+三、人工输入与全局设定体系
+ 
+3.1 设计理念
+ 
+平台中存在大量无法穷举的主观创意输入，如整体动漫风格、画面色调偏好、叙事节奏、角色性格基调等。这些输入不应硬编码在系统中，而应通过全局设定 + 场景级覆盖 + 模板可配的三层机制，让用户自由定义任何维度的创作偏好。
+ 
+3.2 三层输入架构
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  第一层：项目全局设定（影响整个项目所有集）                 │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │  画风:    [日系动漫 ▼]  [自定义: ___________]       │ │
+│  │  色调:    [暖色系 ▼]    [自定义: ___________]       │ │
+│  │  叙事:    [快节奏 ▼]    [自定义: ___________]       │ │
+│  │  目标受众: [青年 ▼]     [自定义: ___________]       │ │
+│  │  整体氛围: [热血 ▼]     [自定义: ___________]       │ │
+│  │  音乐风格: [电子流行 ▼] [自定义: ___________]       │ │
+│  │  字幕风格: [白色描边 ▼] [自定义: ___________]       │ │
+│  │                                                     │ │
+│  │  + 添加自定义维度                                    │ │
+│  │  维度名: [___________]  值: [___________]           │ │
+│  └─────────────────────────────────────────────────────┘ │
+│                                                          │
+│  第二层：场景级覆盖（仅影响特定场景）                      │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │  场景 #5 "雨夜追逐"                                 │ │
+│  │  覆盖色调: [冷色系 ▼]                               │ │
+│  │  覆盖氛围: [紧张 ▼]                                 │ │
+│  │  额外提示: "画面带雨滴模糊效果，霓虹灯反射"          │ │
+│  └─────────────────────────────────────────────────────┘ │
+│                                                          │
+│  第三层：JSON 模板（驱动 LLM 输出结构）                   │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │  [模板工坊] → 可视化编辑 JSON Schema                 │ │
+│  │  [预览模板] → 实时查看模板效果                       │ │
+│  │  [恢复默认] → 回退到系统内置模板                     │ │
+│  └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+ 
+3.3 全局设定数据模型
+ 
+python
+python
+from pydantic import BaseModel, Field
+from typing import Dict, Optional
+
+
+class ProjectGlobalSettings(BaseModel):
+    """项目全局设定 — 所有维度均可自定义扩展"""
+
+    # ── 预设维度（用户可从下拉选择或手动输入） ──
+    art_style: str = "anime"              # 画风: anime / realistic / watercolor / pixel / 自定义
+    color_palette: str = "warm"           # 色调: warm / cool / muted / vibrant / 自定义
+    narrative_pace: str = "fast"          # 叙事节奏: fast / moderate / slow / 自定义
+    target_audience: str = "young_adult"  # 目标受众
+    overall_mood: str = "action"          # 整体氛围
+    music_style: str = "electronic_pop"   # 音乐风格
+    subtitle_style: str = "white_stroke"  # 字幕风格
+
+    # ── 自定义维度（用户自由添加任意键值对） ──
+    custom_dimensions: Dict[str, str] = Field(default_factory=dict)
+    # 示例: {"镜头语言": "手持跟拍为主", "对白风格": "口语化、短句", "特效偏好": "粒子光效"}
+
+    # ── LLM 提示词前缀（自动拼接到所有 LLM 请求前） ──
+    global_prompt_prefix: str = ""
+
+    def to_prompt_context(self) -> str:
+        """将全局设定转换为 LLM 可理解的上下文文本"""
+        lines = []
+        lines.append(f"画风: {self.art_style}")
+        lines.append(f"色调: {self.color_palette}")
+        lines.append(f"叙事节奏: {self.narrative_pace}")
+        lines.append(f"目标受众: {self.target_audience}")
+        lines.append(f"整体氛围: {self.overall_mood}")
+        lines.append(f"音乐风格: {self.music_style}")
+        for key, value in self.custom_dimensions.items():
+            lines.append(f"{key}: {value}")
+        if self.global_prompt_prefix:
+            lines.append(f"额外要求: {self.global_prompt_prefix}")
+        return "\n".join(lines)
+
+
+class SceneOverride(BaseModel):
+    """场景级设定覆盖 — 只覆盖非空字段"""
+    scene_id: str
+    color_palette: Optional[str] = None
+    mood: Optional[str] = None
+    extra_prompt: Optional[str] = None
+    custom_overrides: Dict[str, str] = Field(default_factory=dict)
+ 
+3.4 人工输入点全景图
+ 
+以下列出系统中所有需要人工输入/干预的关键节点，以及每个节点的输入方式：
+ 
+阶段	人工输入点	输入方式	说明
+项目创建	项目名称	文本框	—
+题材/类型	下拉 + 自定义	如：都市、古装、科幻、自定义输入
+全局画风	下拉 + 自定义	日系动漫/写实/水彩/像素/自由输入
+整体色调	色板 + 自定义	暖色/冷色/莫兰迪/自由输入
+叙事节奏	下拉 + 自定义	快/中/慢/自由输入
+目标受众	下拉 + 自定义	儿童/青年/全年龄/自由输入
+额外全局偏好	多行文本	任意补充说明，如"角色眼睛要大而明亮"
+角色创建	角色姓名	文本框	—
+性别	单选 + 自定义	—
+外貌描述	多行文本 + AI辅助	用户描述 → AI 补全 → 用户确认
+体型	下拉 + 自定义	—
+年龄段	滑块 + 预览	可视化预览不同年龄效果
+服装设计	多行文本 + 参考图上传	描述 + 上传参考图
+配饰	列表添加	逐项添加，每项可上传参考图
+性格基调	多行文本	影响对话风格和表情生成
+音色偏好	试听 + 参数调节	从候选音色中选择或上传参考音频
+剧本阶段	剧情大纲	多行文本	用户可先写大纲让 AI 展开，也可纯 AI 生成后修改
+每集概要	文本框	可选填写，不填则 AI 自动生成
+关键剧情点	列表	用户指定必须包含的剧情节点
+角色关系	可视化关系图	拖拽设置角色间关系
+台词精修	逐句编辑	每句台词可修改文字/情感/语速/音量
+旁白文本	多行文本	可选，用户编写或 AI 生成
+分镜阶段	镜头描述	文本框	可编辑 AI 生成的描述
+镜头类型	下拉	特写/中景/远景/俯拍等
+运镜方式	下拉	静止/平移/推拉/跟踪等
+构图调整	拖拽	可视化调整角色在画面中的位置
+图像阶段	关键帧审核	预览 + 确认/重生成	逐张审核
+局部重绘	画笔涂抹 + 描述	涂选区域 + 输入修改描述
+提示词修改	文本框	编辑正向/负向提示词
+生成参数	滑块	Seed/CFG/Steps/分辨率
+上传替换	文件上传	直接替换 AI 结果
+视频阶段	片段审核	预览 + 确认/重生成	逐段审核
+运动描述	文本框	编辑运动提示词
+裁剪入出点	拖拽	可视化设置
+转场效果	下拉 + 预览	硬切/叠化/淡入淡出/滑动/缩放
+色彩调整	滑块	亮度/对比度/饱和度/色温
+音频阶段	配音审核	逐句试听 + 确认/重录	—
+情感调节	下拉	happy/sad/angry/fearful/surprised/calm/whisper
+语速/音调	滑块	—
+BGM 选择	AI生成试听/音效库/上传	三种来源
+环境音	AI生成/音效库/上传	逐条管理
+混音比例	滑块	BGM/环境音/人声/SFX 各轨音量
+字幕阶段	文字校对	文本框	逐条校对
+时间调整	拖拽 + 精确输入	毫秒级精度
+样式设定	预设 + 自定义	字体/字号/颜色/描边/位置/动画
+输出阶段	分辨率选择	下拉	720p/1080p/4K
+编码质量	滑块	文件大小 vs 画质平衡
+水印/片头片尾	上传	可选
+ 
+3.5 自定义维度扩展机制
+ 
+用户可在全局设定界面随时添加新的维度，系统会自动将其纳入 LLM 上下文：
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  全局设定 > 自定义维度                                    │
+│                                                          │
+│  已添加:                                                  │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │  镜头语言:  [手持跟拍为主        ]  [× 删除]         │ │
+│  │  对白风格:  [口语化、短句         ]  [× 删除]         │ │
+│  │  特效偏好:  [粒子光效             ]  [× 删除]         │ │
+│  │  角色眼睛:  [大而明亮，有星星眼感 ]  [× 删除]         │ │
+│  └─────────────────────────────────────────────────────┘ │
+│                                                          │
+│  + 添加新维度:                                            │
+│  维度名称: [________________]                             │
+│  维度说明: [________________]  (可选，帮助 AI 理解)       │
+│  维度取值: [________________]                             │
+│  [添加]                                                   │
+│                                                          │
+│  💡 提示: 自定义维度会自动注入到剧本生成、图像生成、       │
+│          视频生成等所有 AI 环节的提示词中。                │
+└─────────────────────────────────────────────────────────┘
+ 
+ 
+四、JSON 模板体系 — 驱动 LLM 结构化输出
+ 
+4.1 设计理念
+ 
+Dify 是使用 LLM 的工具，LLM 需要明确的 JSON 结构模板来输出结构化数据，而不是自然语言描述。系统中所有需要 LLM 输出结构化数据的环节，都通过可编辑的 JSON 模板来驱动。用户可在界面上可视化编辑这些模板，调整输出结构。
+ 
+4.2 模板管理架构
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  模板工坊 (Template Workshop)                             │
+│                                                          │
+│  ┌─ 模板列表 ─────────────────────────────────────────┐  │
+│  │  📋 剧本大纲模板    (script_outline)    [编辑] [预览]│  │
+│  │  📋 角色对话模板    (dialogue)          [编辑] [预览]│  │
+│  │  📋 分镜拆解模板    (storyboard)        [编辑] [预览]│  │
+│  │  📋 场景描写模板    (scene_description) [编辑] [预览]│  │
+│  │  📋 情感标注模板    (emotion_tag)       [编辑] [预览]│  │
+│  │  📋 角色设定模板    (character_profile) [编辑] [预览]│  │
+│  │  [ + 创建新模板 ]                                    │  │
+│  └─────────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 模板编辑器 ───────────────────────────────────────┐  │
+│  │  模板名称: 剧本大纲模板                              │  │
+│  │  模板ID:  script_outline                            │  │
+│  │                                                     │  │
+│  │  ┌─ JSON Schema 可视化编辑 ──────────────────────┐  │  │
+│  │  │  {                                            │  │  │
+│  │  │    "title": "string — 剧本标题",              │  │  │
+│  │  │    "genre": "string — 题材类型",              │  │  │
+│  │  │    "synopsis": "string — 整体概要",           │  │  │
+│  │  │    "episodes": [                              │  │  │
+│  │  │      {                                        │  │  │
+│  │  │        "episode_number": "integer",           │  │  │
+│  │  │        "title": "string — 本集标题",          │  │  │
+│  │  │        "synopsis": "string — 本集概要",       │  │  │
+│  │  │        "key_plot_points": ["string"],         │  │  │
+│  │  │        "emotional_arc": "string — 情感走向"   │  │  │
+│  │  │      }                                        │  │  │
+│  │  │    ]                                          │  │  │
+│  │  │  }                                            │  │  │
+│  │  └───────────────────────────────────────────────┘  │  │
+│  │                                                     │  │
+│  │  [添加字段] [删除字段] [嵌套子对象] [设为数组]       │  │
+│  │  [预览效果] [恢复默认] [保存] [导出] [导入]          │  │
+│  └─────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+ 
+4.3 内置 JSON 模板清单
+ 
+模板 1: 剧本大纲模板 (script_outline)
+ 
+json
+json
+{
+  "title": "短剧标题",
+  "genre": "都市情感",
+  "target_audience": "青年",
+  "total_episodes": 10,
+  "episode_duration_sec": 120,
+  "synopsis": "整体故事概要，200字以内",
+  "theme": "核心主题",
+  "characters": [
+    {
+      "name": "角色名",
+      "role": "protagonist/antagonist/support",
+      "brief": "一句话角色简介",
+      "personality": "性格关键词",
+      "motivation": "角色动机"
+    }
+  ],
+  "episodes": [
+    {
+      "episode_number": 1,
+      "title": "本集标题",
+      "synopsis": "本集概要，100字以内",
+      "key_plot_points": [
+        "关键剧情点1",
+        "关键剧情点2"
+      ],
+      "emotional_arc": "平静→震惊→愤怒",
+      "cliffhanger": "本集结尾悬念"
+    }
+  ],
+  "world_setting": {
+    "time_period": "现代/古代/未来",
+    "location": "主要场景地点",
+    "atmosphere": "整体氛围描述"
+  }
+}
+ 
+模板 2: 角色对话模板 (dialogue)
+ 
+json
+json
+{
+  "scene_id": "scene_001",
+  "scene_context": "场景上下文描述",
+  "characters_present": ["char_001", "char_002"],
+  "dialogues": [
+    {
+      "character_id": "char_001",
+      "text": "台词内容",
+      "emotion": "happy/sad/angry/fearful/surprised/calm/whisper",
+      "volume": "whisper/normal/loud/shout",
+      "pace": "slow/normal/fast",
+      "action": "说话时的动作描述",
+      "expression": "说话时的表情描述"
+    }
+  ],
+  "narration": "旁白内容（可选，无旁白则为空字符串）",
+  "scene_direction": "场景调度说明"
+}
+ 
+模板 3: 分镜拆解模板 (storyboard)
+ 
+json
+json
+{
+  "episode_id": "ep_001",
+  "shots": [
+    {
+      "shot_number": 1,
+      "shot_type": "closeup/medium/wide/overhead",
+      "camera_movement": "static/pan/tilt/zoom/tracking",
+      "duration_sec": 3.0,
+      "visual_description": "画面内容的详细描述",
+      "character_actions": {
+        "char_001": "角色A的动作描述"
+      },
+      "character_positions": {
+        "char_001": { "x": 0.3, "y": 0.5, "depth": 0.8, "facing": "right" }
+      },
+      "dialogues": [
+        {
+          "character_id": "char_001",
+          "text": "台词",
+          "emotion": "angry",
+          "volume": "loud",
+          "pace": "fast"
+        }
+      ],
+      "narration": "",
+      "emotion_tags": ["tense", "conflict"],
+      "character_emotions": {
+        "char_001": "愤怒",
+        "char_002": "恐惧"
+      },
+      "sfx_hint": "关门声",
+      "bgm_hint": "紧张弦乐渐强"
+    }
+  ]
+}
+ 
+模板 4: 角色设定模板 (character_profile)
+ 
+json
+json
+{
+  "name": "角色名",
+  "gender": "male/female/other",
+  "age": 25,
+  "personality": "性格描述",
+  "background": "角色背景故事",
+  "appearance": {
+    "face_shape": "oval/round/square/heart",
+    "eye_color": "棕色",
+    "hair_style": "长直发",
+    "hair_color": "黑色",
+    "skin_tone": "白皙",
+    "distinctive_features": ["左眼角小痣", "微笑时有酒窝"],
+    "expression_bias": "常带微笑"
+  },
+  "body": {
+    "height_cm": 165,
+    "weight_kg": 55,
+    "body_type": "slim/average/athletic/curvy/heavy"
+  },
+  "voice": {
+    "tone": "温柔",
+    "speed": "normal",
+    "pitch": "中高音"
+  },
+  "wardrobe_default": {
+    "top": "白色衬衫",
+    "bottom": "深色牛仔裤",
+    "shoes": "白色运动鞋",
+    "color_palette": ["#FFFFFF", "#2C3E50", "#ECF0F1"]
+  }
+}
+ 
+4.4 模板数据模型与存储
+ 
+python
+python
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+from datetime import datetime
+
+
+class JSONTemplate(BaseModel):
+    """JSON 模板 — 存储于数据库，可通过界面编辑"""
+    id: str
+    name: str                           # 模板显示名称
+    slug: str                           # 唯一标识符，如 "script_outline"
+    category: str                       # 分类: script / character / storyboard / dialogue
+    description: str = ""               # 模板用途说明
+    schema: Dict[str, Any]              # JSON Schema 定义
+    example: Dict[str, Any]             # 示例数据（即发送给 LLM 的实际模板）
+    system_prompt_suffix: str = ""      # 该模板对应的 LLM 系统提示词补充
+    version: int = 1
+    is_builtin: bool = True             # 内置模板不可删除，可修改
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
+class TemplateVersion(BaseModel):
+    """模板版本历史"""
+    template_id: str
+    version: int
+    schema: Dict[str, Any]
+    example: Dict[str, Any]
+    system_prompt_suffix: str
+    saved_at: datetime
+    note: str = ""                      # 版本备注
+ 
+4.5 Dify 调用时的模板注入机制
+ 
+Dify 调用 LLM 时，不是用自然语言描述"请输出包含 title、genre 等字段的 JSON"，而是将完整的 JSON 模板作为示例直接注入到提示词中：
+ 
+python
+python
+class DifyClient:
+    """Dify API 客户端 — 模板驱动的结构化输出"""
+
+    def __init__(self, base_url: str, api_key: str, template_service: "TemplateService") -> None:
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.template_service = template_service
+        self._client = httpx.AsyncClient(timeout=120.0)
+
+    async def generate_script(self, params: dict, project_settings: "ProjectGlobalSettings") -> dict:
+        """调用剧本创作助手 — 注入 JSON 模板 + 全局设定"""
+        # 获取模板
+        template = await self.template_service.get_template("script_outline")
+
+        # 构建完整提示词：全局设定上下文 + JSON 模板示例
+        global_context = project_settings.to_prompt_context()
+        template_example = json.dumps(template.example, ensure_ascii=False, indent=2)
+
+        enhanced_params = {
+            **params,
+            "global_settings": global_context,
+            "output_json_template": template_example,
+            "system_prompt_suffix": template.system_prompt_suffix,
+        }
+
+        response = await self._call_workflow("script_writer", enhanced_params)
+        return json.loads(response["script"])
+
+    async def generate_dialogues(self, params: dict, project_settings: "ProjectGlobalSettings") -> list:
+        """调用对话生成器 — 注入对话 JSON 模板"""
+        template = await self.template_service.get_template("dialogue")
+        global_context = project_settings.to_prompt_context()
+        template_example = json.dumps(template.example, ensure_ascii=False, indent=2)
+
+        enhanced_params = {
+            **params,
+            "global_settings": global_context,
+            "output_json_template": template_example,
+            "system_prompt_suffix": template.system_prompt_suffix,
+        }
+
+        response = await self._call_conversation("dialogue_generator", enhanced_params)
+        return json.loads(response["answer"])
+
+    async def _call_workflow(self, app_name: str, inputs: dict) -> dict:
+        url = f"{self.base_url}/v1/workflows/run"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        payload = {"inputs": inputs, "response_mode": "blocking", "user": "tvai-system"}
+        resp = await self._client.post(url, json=payload, headers=headers)
+        resp.raise_for_status()
+        return resp.json()["data"]["outputs"]
+
+    async def _call_conversation(self, app_name: str, inputs: dict) -> dict:
+        url = f"{self.base_url}/v1/chat-messages"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        payload = {"inputs": inputs, "response_mode": "blocking", "user": "tvai-system"}
+        resp = await self._client.post(url, json=payload, headers=headers)
+        resp.raise_for_status()
+        return json.loads(resp.json()["answer"])
+ 
+4.6 模板编辑 API
+ 
+text
+text
+GET    /api/templates                              # 获取所有模板列表
+GET    /api/templates/{slug}                        # 获取指定模板详情
+PUT    /api/templates/{slug}                        # 更新模板（schema + example + prompt）
+POST   /api/templates                              # 创建自定义模板
+DELETE /api/templates/{slug}                        # 删除自定义模板（内置模板不可删）
+POST   /api/templates/{slug}/reset                  # 恢复内置模板默认值
+GET    /api/templates/{slug}/versions               # 获取模板版本历史
+POST   /api/templates/{slug}/revert/{version}       # 回退到指定版本
+POST   /api/templates/{slug}/preview                # 预览模板效果（模拟 LLM 输出结构）
+POST   /api/templates/import                        # 导入模板 JSON 文件
+GET    /api/templates/{slug}/export                 # 导出模板
+ 
+ 
+五、无限集数支持 — 上下文压缩与分层摘要
+ 
+5.1 问题分析
+ 
+LLM 存在 token 上下文限制。当短剧集数增多（如 50 集、100 集甚至更多），将全部剧本、角色历史、场景信息一次性送入 LLM 会超出 token 限制。需要通过分层摘要 + 上下文压缩 + 滑动窗口机制来突破此限制。
+ 
+5.2 分层摘要架构
+ 
+text
+text
+┌─────────────────────────────────────────────────────────────┐
+│  第一层: 项目级摘要 (Project Summary)                         │
+│  内容: 整体故事线、核心角色关系、主要冲突、主题               │
+│  大小: ≤ 500 tokens                                          │
+│  更新频率: 每 5 集自动更新一次                                │
+├─────────────────────────────────────────────────────────────┤
+│  第二层: 故事弧摘要 (Arc Summary)                             │
+│  内容: 当前故事弧的起承转合、关键转折、角色发展               │
+│  大小: ≤ 300 tokens / 弧                                     │
+│  更新频率: 每个故事弧结束时生成                               │
+├─────────────────────────────────────────────────────────────┤
+│  第三层: 集级摘要 (Episode Summary)                           │
+│  内容: 本集关键事件、角色情感变化、悬念/伏笔                  │
+│  大小: ≤ 200 tokens / 集                                     │
+│  更新频率: 每集完成后自动生成                                 │
+├─────────────────────────────────────────────────────────────┤
+│  第四层: 详细内容 (Full Content)                              │
+│  内容: 完整的场景、台词、分镜数据                             │
+│  范围: 仅当前集 + 前 1-2 集（滑动窗口）                      │
+│  大小: 不限（但通过前三层压缩后，实际需要的上下文很小）       │
+└─────────────────────────────────────────────────────────────┘
+ 
+5.3 上下文组装策略
+ 
+python
+python
+class ContextCompressor:
+    """上下文压缩引擎 — 支持任意集数"""
+
+    MAX_PROJECT_SUMMARY_TOKENS = 500
+    MAX_ARC_SUMMARY_TOKENS = 300
+    MAX_EPISODE_SUMMARY_TOKENS = 200
+    SLIDING_WINDOW_SIZE = 2            # 滑动窗口：当前集 + 前 N 集
+
+    async def build_context_for_episode(
+        self,
+        project_id: str,
+        target_episode_number: int,
+        project_settings: "ProjectGlobalSettings",
+    ) -> str:
+        """为指定集构建 LLM 上下文 — 自动压缩，永不超限"""
+
+        context_parts = []
+
+        # 1. 全局设定（固定开销，约 100-300 tokens）
+        context_parts.append("=== 全局设定 ===")
+        context_parts.append(project_settings.to_prompt_context())
+
+        # 2. 项目级摘要（固定开销，≤ 500 tokens）
+        project_summary = await self.get_project_summary(project_id)
+        context_parts.append("\n=== 故事整体概要 ===")
+        context_parts.append(project_summary)
+
+        # 3. 相关故事弧摘要（仅当前弧 + 前一弧，约 300-600 tokens）
+        relevant_arcs = await self.get_relevant_arcs(project_id, target_episode_number)
+        for arc in relevant_arcs:
+            context_parts.append(f"\n=== 故事弧: {arc.name} ===")
+            context_parts.append(arc.summary)
+
+        # 4. 前几集摘要（滑动窗口，约 200-400 tokens）
+        prev_episodes = await self.get_previous_episode_summaries(
+            project_id, target_episode_number, window=self.SLIDING_WINDOW_SIZE
+        )
+        for ep in prev_episodes:
+            context_parts.append(f"\n=== 第{ep.number}集摘要: {ep.title} ===")
+            context_parts.append(ep.summary)
+
+        # 5. 当前集完整内容（如果存在，用于修改场景）
+        current_episode = await self.get_episode_full_content(project_id, target_episode_number)
+        if current_episode:
+            context_parts.append(f"\n=== 第{target_episode_number}集完整内容 ===")
+            context_parts.append(current_episode)
+
+        # 6. 角色当前状态（非全部历史，仅当前状态快照）
+        character_states = await self.get_character_current_states(project_id, target_episode_number)
+        context_parts.append("\n=== 角色当前状态 ===")
+        context_parts.append(character_states)
+
+        return "\n".join(context_parts)
+
+    async def generate_episode_summary(self, episode_full_content: dict) -> str:
+        """自动生成集级摘要 — 每集完成后调用"""
+        # 使用 LLM 将完整集内容压缩为 ≤ 200 tokens 的摘要
+        summary_prompt = f"""请将以下剧情内容压缩为不超过150字的摘要，保留：
+1. 关键事件和转折
+2. 角色情感变化
+3. 未解决的悬念和伏笔
+4. 与下一集的衔接点
+
+内容: {json.dumps(episode_full_content, ensure_ascii=False)}
+
+输出纯文本摘要，不要JSON格式。"""
+        return await self._llm_compress(summary_prompt)
+
+    async def generate_arc_summary(self, arc_episodes: list) -> str:
+        """自动生成故事弧摘要 — 弧结束时调用"""
+        episode_summaries = [ep.summary for ep in arc_episodes]
+        summary_prompt = f"""请将以下多个集的摘要合并为一个故事弧总结（不超过200字），保留：
+1. 弧的核心冲突和解决
+2. 角色发展轨迹
+3. 对后续剧情的影响
+
+各集摘要:
+{chr(10).join(f'第{ep.number}集: {ep.summary}' for ep in arc_episodes)}
+
+输出纯文本摘要。"""
+        return await self._llm_compress(summary_prompt)
+
+    async def update_project_summary(self, project_id: str) -> str:
+        """更新项目级摘要 — 每 5 集自动触发"""
+        arc_summaries = await self.get_all_arc_summaries(project_id)
+        summary_prompt = f"""请将以下故事弧总结合并为项目整体概要（不超过300字），保留：
+1. 主线故事脉络
+2. 核心角色关系
+3. 主要冲突和主题
+4. 整体情感走向
+
+各弧摘要:
+{chr(10).join(arc_summaries)}
+
+输出纯文本概要。"""
+        return await self._llm_compress(summary_prompt)
+ 
+5.4 摘要存储模型
+ 
+python
+python
+class EpisodeSummary(BaseModel):
+    """集级摘要"""
+    episode_id: str
+    episode_number: int
+    title: str
+    summary: str                       # ≤ 200 tokens
+    key_events: List[str]              # 关键事件列表
+    character_state_changes: Dict[str, str]  # 角色状态变化
+    open_threads: List[str]            # 未解决的悬念/伏笔
+    next_episode_hook: str             # 与下一集的衔接点
+    generated_at: datetime
+
+
+class ArcSummary(BaseModel):
+    """故事弧摘要"""
+    arc_id: str
+    arc_name: str
+    episode_range: List[int]           # [起始集, 结束集]
+    summary: str                       # ≤ 300 tokens
+    character_developments: Dict[str, str]
+    generated_at: datetime
+
+
+class ProjectSummary(BaseModel):
+    """项目级摘要"""
+    project_id: str
+    summary: str                       # ≤ 500 tokens
+    total_episodes_processed: int
+    last_updated_at: datetime
+ 
+5.5 批量生产管线中的摘要触发
+ 
+python
+python
+class ProductionPipeline:
+    """生产管线 — 含自动摘要机制"""
+
+    async def produce_batch(self, project_id: str, start_episode: int, end_episode: int):
+        """批量生产多集 — 自动管理上下文"""
+        for ep_num in range(start_episode, end_episode + 1):
+            # 1. 构建当前集上下文（自动压缩）
+            context = await self.context_compressor.build_context_for_episode(
+                project_id, ep_num, await self.get_project_settings(project_id)
+            )
+
+            # 2. 生成当前集
+            episode = await self.produce_single_episode(project_id, ep_num, context)
+
+            # 3. 生成集级摘要
+            summary = await self.context_compressor.generate_episode_summary(episode)
+            await self.save_episode_summary(project_id, ep_num, summary)
+
+            # 4. 检查是否需要更新弧摘要
+            if await self.is_arc_complete(project_id, ep_num):
+                arc = await self.get_current_arc(project_id, ep_num)
+                arc_summary = await self.context_compressor.generate_arc_summary(arc.episodes)
+                await self.save_arc_summary(project_id, arc.id, arc_summary)
+
+            # 5. 每 5 集更新项目级摘要
+            if ep_num % 5 == 0:
+                await self.context_compressor.update_project_summary(project_id)
+ 
+ 
+六、空间优化 — 存储节省策略
+ 
+6.1 存储优化总览
+ 
+资产类型	优化策略	预期节省
+原始图片	生成时使用目标分辨率，避免过大；存储为 WebP 格式	60-70%
+图片版本	使用增量 diff 存储，非全量备份	50-80%
+视频片段	中间态使用 H.265 编码 + 合理码率	40-50%
+音频文件	中间态使用 FLAC 无损压缩（而非 WAV）；最终输出用 AAC	50-70%
+参考素材	相同角色的参考图去重存储，通过引用关联	30-50%
+临时文件	自动清理过期临时文件（默认 24h）	—
+数据库	JSONB 字段按需存储，大文本使用摘要替代	20-30%
+LLM 上下文	分层摘要压缩（见第五章）	80-90%
+ 
+6.2 图片存储优化
+ 
+python
+python
+class ImageStorageOptimizer:
+    """图片存储优化器"""
+
+    # 生成阶段直接指定目标分辨率，避免生成过大图片再缩放
+    RESOLUTION_PRESETS = {
+        "720p":  (1280, 720),
+        "1080p": (1920, 1080),
+        "4k":    (3840, 2160),
+    }
+
+    # 存储格式优先级
+    STORAGE_FORMAT = "webp"            # WebP 比 PNG 小 60-70%，比 JPEG 小 25-35%
+    WEBP_QUALITY = 85                  # 质量 85 在视觉无损和大小之间平衡
+
+    # 中间态图片（如 AI 生成的原始输出）
+    INTERMEDIATE_FORMAT = "webp"
+    INTERMEDIATE_QUALITY = 80
+
+    async def save_image(self, image_bytes: bytes, path: str, is_final: bool = False) -> str:
+        """保存图片 — 自动压缩为 WebP"""
+        quality = self.WEBP_QUALITY if is_final else self.INTERMEDIATE_QUALITY
+        img = Image.open(io.BytesIO(image_bytes))
+
+        # 自动裁剪到目标分辨率（如果超出）
+        target_w, target_h = self.get_target_resolution()
+        if img.width > target_w or img.height > target_h:
+            img = img.resize((target_w, target_h), Image.LANCZOS)
+
+        # 转换为 WebP
+        output_path = path.rsplit(".", 1)[0] + ".webp"
+        img.save(output_path, "WEBP", quality=quality, method=6)
+        return output_path
+
+    async def save_reference_image(self, image_bytes: bytes, character_id: str) -> str:
+        """保存角色参考图 — 去重存储"""
+        content_hash = hashlib.md5(image_bytes).hexdigest()
+        existing = await self.find_by_hash(content_hash)
+        if existing:
+            # 已存在相同图片，只增加引用计数
+            await self.increment_ref_count(existing.path)
+            return existing.path
+        return await self.save_image(image_bytes, f"refs/{character_id}/{content_hash}.webp")
+ 
+6.3 音频存储优化
+ 
+python
+python
+class AudioStorageOptimizer:
+    """音频存储优化器"""
+
+    # 中间态音频使用 FLAC 无损压缩（比 WAV 小 50-60%，质量无损）
+    INTERMEDIATE_FORMAT = "flac"
+
+    # 最终输出使用 AAC（比 MP3 小 30% 且质量更好）
+    FINAL_FORMAT = "aac"
+    FINAL_BITRATE = "192k"
+
+    # TTS 采样率：44.1kHz → 22.05kHz（语音场景足够）
+    TTS_SAMPLE_RATE = 22050
+
+    async def save_voice_audio(self, audio_bytes: bytes, path: str, is_final: bool = False) -> str:
+        """保存配音音频"""
+        if is_final:
+            # 最终输出：AAC
+            output_path = path.rsplit(".", 1)[0] + ".aac"
+            audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+            audio = audio.set_frame_rate(self.TTS_SAMPLE_RATE)
+            audio.export(output_path, format="aac", bitrate=self.FINAL_BITRATE)
+        else:
+            # 中间态：FLAC 无损压缩
+            output_path = path.rsplit(".", 1)[0] + ".flac"
+            audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+            audio = audio.set_frame_rate(self.TTS_SAMPLE_RATE)
+            audio.export(output_path, format="flac")
+        return output_path
+ 
+6.4 视频存储优化
+ 
+python
+python
+class VideoStorageOptimizer:
+    """视频存储优化器"""
+
+    # 中间态视频编码设置
+    INTERMEDIATE_CODEC = "libx265"     # H.265 比 H.264 小 40-50%
+    INTERMEDIATE_CRF = 28              # CRF 28 视觉质量良好且文件较小
+    INTERMEDIATE_PRESET = "medium"
+
+    # 最终输出编码设置
+    FINAL_CODEC = "libx265"
+    FINAL_CRF = 23                     # CRF 23 高质量输出
+    FINAL_PRESET = "slow"
+
+    async def save_video_clip(self, video_path: str, is_final: bool = False) -> str:
+        """保存视频片段 — 自动压缩"""
+        crf = self.FINAL_CRF if is_final else self.INTERMEDIATE_CRF
+        preset = self.FINAL_PRESET if is_final else self.INTERMEDIATE_PRESET
+        output_path = video_path.rsplit(".", 1)[0] + "_compressed.mp4"
+
+        ffmpeg.input(video_path).output(
+            output_path,
+            vcodec=self.FINAL_CODEC if is_final else self.INTERMEDIATE_CODEC,
+            crf=crf,
+            preset=preset,
+            acodec="aac",
+            audio_bitrate="128k",
+        ).overwrite_output().run(quiet=True)
+
+        return output_path
+ 
+6.5 自动清理策略
+ 
+python
+python
+class StorageCleaner:
+    """存储清理器 — 自动管理磁盘空间"""
+
+    TEMP_FILE_MAX_AGE_HOURS = 24       # 临时文件 24 小时后自动清理
+    INTERMEDIATE_KEEP_LATEST = 3       # 中间态文件只保留最新 3 个版本
+
+    async def cleanup_temp_files(self):
+        """定时任务：清理过期临时文件"""
+        cutoff = datetime.now() - timedelta(hours=self.TEMP_FILE_MAX_AGE_HOURS)
+        temp_dir = Path("./outputs/temp")
+        for f in temp_dir.rglob("*"):
+            if f.is_file() and datetime.fromtimestamp(f.stat().st_mtime) < cutoff:
+                f.unlink()
+
+    async def cleanup_old_intermediates(self, project_id: str):
+        """清理旧版本中间态文件，只保留最新 N 个"""
+        for asset_type in ["keyframes", "clips", "voices", "bgm"]:
+            versions = await self.list_asset_versions(project_id, asset_type)
+            if len(versions) > self.INTERMEDIATE_KEEP_LATEST:
+                for old_version in versions[self.INTERMEDIATE_KEEP_LATEST:]:
+                    await self.delete_asset(old_version)
+ 
+ 
+七、核心模块详细设计
+ 
+7.1 角色一致性管理器 (Character Consistency Manager)
+ 
+7.1.1 角色数据模型
+ 
+python
+python
+from pydantic import BaseModel, Field
+from typing import List, Dict, Optional
+
+
+class CharacterProfile(BaseModel):
+    """角色档案 - 全生命周期一致性保障"""
+    id: str
+    name: str
+    gender: str                      # male/female/other
+
+    appearance: "AppearanceSpec"
+    body: "BodySpec"
+    age_periods: List["AgePeriod"]
+    wardrobe: List["WardrobeItem"]
+    accessories: List["AccessoryItem"]
+
+    # ── 参考素材 ──
+    reference_images: Dict[str, str] # 视角→图片路径(WebP格式)
+    reference_sheet_id: str          # ComfyUI Reference Sheet 任务ID
+
+    # ── 一致性锁 ──
+    consistency_seed: int
+    consistency_lora: Optional[str] = None
+    face_embedding: List[float] = Field(default_factory=list)  # 512-dim
+
+
+class AppearanceSpec(BaseModel):
+    """外貌规格"""
+    face_shape: str          # oval/round/square/heart
+    eye_color: str
+    hair_style: str
+    hair_color: str
+    skin_tone: str
+    distinctive_features: List[str] = Field(default_factory=list)
+    expression_bias: str
+
+
+class BodySpec(BaseModel):
+    """体型规格"""
+    height_cm: int
+    weight_kg: int
+    body_type: str           # slim/average/athletic/curvy/heavy
+    proportions: str
+
+
+class AgePeriod(BaseModel):
+    """年龄段"""
+    period_name: str         # young/middle/old
+    age_range: str           # "20-25"/"40-45"/"65-70"
+    appearance_modifiers: "AgeAppearanceModifiers"
+    reference_image: str
+    prompt_suffix: str
+
+
+class AgeAppearanceModifiers(BaseModel):
+    """年龄外观修饰"""
+    skin_changes: List[str] = Field(default_factory=list)
+    hair_changes: List[str] = Field(default_factory=list)
+    body_changes: List[str] = Field(default_factory=list)
+    clothing_style: str
+    accessory_changes: List[str] = Field(default_factory=list)
+
+
+class WardrobeItem(BaseModel):
+    """服装项"""
+    id: str
+    name: str
+    scene_ids: List[str] = Field(default_factory=list)
+    episode_range: List[int] = Field(default_factory=list)
+    top: str
+    bottom: str
+    shoes: str
+    color_palette: List[str] = Field(default_factory=list)
+    reference_image: str
+    prompt_fragment: str
+
+
+class AccessoryItem(BaseModel):
+    """配饰项"""
+    id: str
+    name: str
+    type: str                # ring/necklace/watch/earring/bracelet/hat/glasses
+    appearance: str
+    wearing_position: str
+    scene_ids: List[str] = Field(default_factory=list)
+    reference_image: str
+ 
+7.1.2 一致性保障策略
+ 
+text
+text
+策略1: Reference Sheet 生成
+┌──────────────────────────────────────┐
+│ 输入: 角色描述文本                    │
+│ 流程: ComfyUI 生成多视角参考图         │
+│       (正面/侧面/3/4/背面)             │
+│ 输出: 角色 Reference Sheet (WebP)     │
+│ 锁定: 固定 seed + 一致性 LoRA          │
+└──────────────────────────────────────┘
+
+策略2: IP-Adapter / InstantID 锁脸
+┌──────────────────────────────────────┐
+│ 使用 Reference Sheet 中的面部图        │
+│ 通过 IP-Adapter 注入面部特征           │
+│ 每次生成时强制 face_identity 权重≥0.85 │
+└──────────────────────────────────────┘
+
+策略3: 跨年龄一致性
+┌──────────────────────────────────────┐
+│ 基于"面部结构嵌入向量"                │
+│ 青年图 → 中年图: 保持骨相,添加皱纹     │
+│ 中年图 → 老年图: 添加老年斑/白发       │
+│ 使用年龄迁移 LoRA + face_embedding    │
+└──────────────────────────────────────┘
+
+策略4: 服装/配饰追踪
+┌──────────────────────────────────────┐
+│ 每个场景绑定 wardrobe_id              │
+│ 生成时在 prompt 中注入服装描述片段     │
+│ 使用 ControlNet OpenPose 保证身体姿态  │
+│ 服装参考图作为 IP-Adapter 输入         │
+└──────────────────────────────────────┘
+
+策略5: 多角色同框
+┌──────────────────────────────────────┐
+│ 场景图先确定构图(Pose + 深度图)        │
+│ 每个角色独立生成后通过分层合成          │
+│ 或使用区域提示词(Regional Prompting)   │
+│ 遮挡关系通过深度图排序处理             │
+└──────────────────────────────────────┘
+ 
+7.1.3 角色一致性 API
+ 
+text
+text
+POST   /api/characters                     # 创建角色
+GET    /api/characters/{id}                 # 获取角色详情
+PUT    /api/characters/{id}                 # 更新角色
+DELETE /api/characters/{id}                 # 删除角色
+POST   /api/characters/{id}/reference-sheet # 生成参考图
+POST   /api/characters/{id}/age-variant     # 生成年龄变体
+POST   /api/characters/{id}/lock-consistency # 锁定一致性参数
+GET    /api/characters/{id}/wardrobe         # 获取服装列表
+POST   /api/characters/{id}/wardrobe         # 添加服装
+GET    /api/characters/{id}/accessories      # 获取配饰列表
+POST   /api/characters/{id}/accessories      # 添加配饰
+ 
+ 
+7.2 剧本与分镜服务 (Script & Storyboard Service)
+ 
+7.2.1 剧本生成流程
+ 
+通过 Dify 编排 LLM 生成结构化剧本。Dify 可为本地部署实例或第三方云平台。LLM 收到的不是自然语言描述，而是完整的 JSON 模板示例 + 全局设定上下文：
+ 
+text
+text
+用户输入                    Dify Workflow
+─────────                  ─────────────
+主题/题材  ──→  [剧本大纲生成]  ──→  大纲JSON (按 script_outline 模板输出)
+角色设定   ──→  [角色对话生成]  ──→  对话JSON (按 dialogue 模板输出)
+集数/时长  ──→  [分镜拆解]     ──→  分镜JSON (按 storyboard 模板输出)
+风格要求   ──→  [场景描写]     ──→  场景JSON
+全局设定   ──→  [自动注入]     ──→  影响所有生成结果
+模板       ──→  [自动注入]     ──→  确保输出结构一致
+ 
+7.2.2 剧本数据结构
+ 
+python
+python
+from pydantic import BaseModel, Field
+from typing import List, Dict, Optional
+
+
+class DramaProject(BaseModel):
+    """短剧项目"""
+    id: str
+    title: str
+    genre: str
+    style: str
+    total_episodes: int
+    episode_duration_sec: int
+    characters: List["CharacterProfile"]
+    episodes: List["Episode"]
+    global_settings: "ProjectGlobalSettings"
+    status: str                   # draft/generating/completed
+
+
+class Episode(BaseModel):
+    """单集"""
+    id: str
+    project_id: str
+    episode_number: int
+    title: str
+    synopsis: str
+    scenes: List["Scene"]
+    status: str
+
+
+class Scene(BaseModel):
+    """场景"""
+    id: str
+    episode_id: str
+    scene_number: int
+    location: str
+    time_of_day: str
+    weather: str
+    atmosphere: str
+    characters_present: List[str]
+    shots: List["Shot"]
+    background_music: str
+    ambient_sound: str
+    scene_overrides: Optional["SceneOverride"] = None  # 场景级设定覆盖
+
+
+class Shot(BaseModel):
+    """镜头"""
+    id: str
+    scene_id: str
+    shot_number: int
+    shot_type: str                # closeup/medium/wide/overhead
+    camera_movement: str          # static/pan/tilt/zoom/tracking
+    duration_sec: float
+
+    visual_description: str
+    character_actions: Dict[str, str] = Field(default_factory=dict)
+    character_positions: Dict[str, "Position"] = Field(default_factory=dict)
+
+    dialogues: List["Dialogue"] = Field(default_factory=list)
+    narration: Optional[str] = None
+
+    emotion_tags: List[str] = Field(default_factory=list)
+    character_emotions: Dict[str, str] = Field(default_factory=dict)
+
+
+class Dialogue(BaseModel):
+    """对话"""
+    character_id: str
+    text: str
+    emotion: str
+    volume: str                   # whisper/normal/loud/shout
+    pace: str                     # slow/normal/fast
+    pause_after_sec: float = 0.0
+    overlap_with_previous: bool = False
+
+
+class Position(BaseModel):
+    """画面位置"""
+    x: float                      # 0.0~1.0
+    y: float                      # 0.0~1.0
+    depth: float                  # 0.0(远)~1.0(近)
+    facing: str                   # left/right/center/front/back
+ 
+ 
+7.3 视频生产管线 (Production Pipeline)
+ 
+7.3.1 管线阶段 — AI 生成 + 人工审核/精修
+ 
+text
+text
+阶段1: 关键帧生成 (AI)
+├── 输入: Shot.visual_description + Character References + 全局设定
+├── 工具: ComfyUI (本地/远程/云平台)
+├── 方法: IP-Adapter + ControlNet + 角色 LoRA
+├── 输出: 关键帧图片 (WebP, 目标分辨率)
+├── 存储: 自动压缩为 WebP 格式
+└── ★ 人工审核: 确认/修图/重新生成
+
+阶段2: 视频片段生成 (AI)
+├── 输入: 关键帧图片 + 运动描述
+├── 工具: ComfyUI (本地/远程/云平台)
+├── 方法: Image-to-Video + 运动控制
+├── 输出: 视频片段 (MP4, H.265)
+├── 存储: 自动压缩编码
+└── ★ 人工审核: 确认/裁剪/重新生成
+
+阶段3: 语音合成 (AI)
+├── 输入: Dialogue.text + emotion + pace + volume
+├── 工具: ChatTTS / CosyVoice / GPT-SoVITS (本地/第三方 API)
+├── 方法: 角色音色锁定 + 情感控制
+├── 输出: 角色配音音频 (FLAC, 22.05kHz)
+├── 存储: 自动转 FLAC 无损压缩
+└── ★ 人工审核: 逐句试听/调参重录/替换音频
+
+阶段4: 背景音合成 (AI)
+├── 输入: Scene.background_music + ambient_sound
+├── 工具: ComfyUI (ACE-Step 1.5) + 音效库
+├── 方法: 文生音乐 + 环境音叠加
+├── 输出: 背景音轨 (FLAC)
+└── ★ 人工审核: 试听/替换/混音调节
+
+阶段5: 字幕生成 (AI)
+├── 输入: 配音音频 + 台词文本
+├── 工具: WhisperX (强制对齐)
+├── 方法: 语音识别对齐
+├── 输出: SRT 字幕文件
+└── ★ 人工审核: 校对文字/调整时间
+
+阶段6: 音画字同步 (引擎 + 人工)
+├── 输入: 视频 + 配音 + 背景音 + 字幕
+├── 工具: 自研 SyncEngine
+├── 方法: 基于时间轴的自动对齐
+├── 输出: 同步时间轴
+└── ★ 人工精修: 多轨时间轴拖拽对齐
+
+阶段7: 合成输出 (引擎)
+├── 输入: 同步后的各轨道
+├── 工具: FFmpeg 7.1
+├── 方法: 多轨混音 + 视频编码(H.265) + 字幕烧录
+└── 输出: 最终视频 (H.265 MP4, 目标码率)
+ 
+7.3.2 管线编排器
+ 
+python
+python
+class ProductionPipeline:
+    """生产管线编排器 — 每阶段生成后进入待审核状态，等待人工确认或精修"""
+
+    async def produce_episode(
+        self, episode: "Episode", context: str, settings: "ProjectGlobalSettings"
+    ) -> "EpisodeResult":
+        """生产单集完整视频"""
+        results = []
+
+        for scene in episode.scenes:
+            # 1. AI 生成场景关键帧 → 等待人工审核
+            keyframes = await self.generate_keyframes(scene, settings)
+            await self.wait_for_review(scene.id, "keyframes", keyframes)
+
+            # 2. AI 生成视频片段 → 等待人工审核
+            clips = await self.generate_clips(scene, keyframes, settings)
+            await self.wait_for_review(scene.id, "clips", clips)
+
+            # 3. AI 合成语音 → 等待人工逐句审核
+            voices = await self.synthesize_voices(scene, settings)
+            await self.wait_for_review(scene.id, "voices", voices)
+
+            # 4. AI 生成背景音 → 等待人工审核
+            bgm = await self.generate_bgm(scene, settings)
+            await self.wait_for_review(scene.id, "bgm", bgm)
+
+            # 5. AI 生成字幕 → 等待人工校对
+            subtitles = await self.generate_subtitles(scene, voices)
+            await self.wait_for_review(scene.id, "subtitles", subtitles)
+
+            # 6. 自动音画字同步 → 人工可进一步微调
+            timeline = await self.sync_av_subtitle(clips, voices, bgm, subtitles)
+            await self.wait_for_review(scene.id, "timeline", timeline)
+
+            # 7. 合成输出（自动压缩）
+            final = await self.composite(timeline, settings)
+            results.append(final)
+
+        return await self.add_transitions(results)
+
+    async def wait_for_review(
+        self, scene_id: str, stage: str, assets: list
+    ) -> None:
+        """将资产标记为待审核，通过 WebSocket 通知前端，等待人工确认后继续。
+
+        人工可执行的操作:
+        - 确认通过 → 管线继续
+        - 修改参数后重新生成该阶段
+        - 直接替换为手工上传的素材
+        - 跳过该阶段（保留 AI 初稿）
+        """
+        ...
+ 
+ 
+7.4 音画字同步引擎 (A/V/Subtitle Sync Engine)
+ 
+7.4.1 同步策略
+ 
+text
+text
+时间轴结构 (Timeline):
+┌─────────────────────────────────────────────────────┐
+│ 时间 (秒):  0     2     4     6     8    10    12   │
+│ ─────────────────────────────────────────────────── │
+│ 视频轨:    [Shot1 ][Shot2    ][Shot3  ][Shot4    ]  │
+│ 人声轨:    [Dial1][Dial2  ][Dial3]   [Dial4      ] │
+│ BGM轨:     [────── Scene1 BGM ──────][── Scene2 ──] │
+│ 字幕轨:    [Sub1 ][Sub2   ][Sub3]    [Sub4       ]  │
+│ SFX轨:     [door]          [rain───────────────]    │
+└─────────────────────────────────────────────────────┘
+
+同步规则:
+1. 人声对齐: 每句台词的起止时间由 TTS 输出决定
+2. 视频对齐: 镜头时长 = max(该镜头内最长对话时长, 最小镜头时长)
+3. 字幕对齐: 字幕起止 = 对应对话起止 ± 200ms 缓冲
+4. BGM对齐: 场景级,淡入淡出 1s
+5. SFX对齐: 精确到帧(如关门声对准关门动作帧)
+ 
+7.4.2 情感对话处理
+ 
+python
+python
+class EmotionAwareTTS:
+    """情感感知 TTS — 支持 ChatTTS / CosyVoice / GPT-SoVITS / 第三方 API"""
+
+    EMOTION_PARAMS: dict[str, dict[str, float]] = {
+        "happy":     {"speed": 1.1,  "pitch": 1.15, "energy": 1.2, "pause_ratio": 0.8},
+        "sad":       {"speed": 0.85, "pitch": 0.9,  "energy": 0.7, "pause_ratio": 1.3},
+        "angry":     {"speed": 1.2,  "pitch": 1.1,  "energy": 1.5, "pause_ratio": 0.6},
+        "fearful":   {"speed": 1.15, "pitch": 1.2,  "energy": 0.9, "pause_ratio": 0.7},
+        "surprised": {"speed": 1.1,  "pitch": 1.25, "energy": 1.3, "pause_ratio": 0.5},
+        "calm":      {"speed": 0.95, "pitch": 1.0,  "energy": 0.8, "pause_ratio": 1.0},
+        "whisper":   {"speed": 0.8,  "pitch": 0.85, "energy": 0.4, "pause_ratio": 1.5},
+    }
+
+    CHATTTS_EMOTION_TAGS: dict[str, str] = {
+        "happy": "[laugh]", "sad": "[uv_break]", "angry": "",
+        "fearful": "[uv_break]", "surprised": "", "calm": "", "whisper": "[uv_break]",
+    }
+
+    async def synthesize(
+        self, dialogue: "Dialogue", character: "CharacterProfile"
+    ) -> "AudioSegment":
+        """合成带情感的角色配音 — 自动适配本地/第三方引擎"""
+        params = self.EMOTION_PARAMS.get(dialogue.emotion, self.EMOTION_PARAMS["calm"])
+
+        if self.tts_engine.engine_type == "chattts":
+            emotion_tag = self.CHATTTS_EMOTION_TAGS.get(dialogue.emotion, "")
+            text_with_emotion = f"{emotion_tag}{dialogue.text}"
+            audio = await self.tts_engine.synthesize(
+                text=text_with_emotion,
+                spk_smp=character.voice_sample,
+                temperature=params["energy"],
+                top_P=0.7,
+                top_K=20,
+            )
+        else:
+            # CosyVoice / GPT-SoVITS / 第三方 TTS API — 统一参数接口
+            audio = await self.tts_engine.synthesize(
+                text=dialogue.text,
+                speaker_id=character.voice_id,
+                speed=params["speed"],
+                pitch=params["pitch"],
+                energy=params["energy"],
+            )
+
+        audio = self.adjust_volume(audio, dialogue.volume)
+
+        if dialogue.pause_after_sec > 0:
+            audio = audio + Silence(dialogue.pause_after_sec)
+
+        return audio
+ 
+ 
+八、可视化编辑界面 — 人性化设计
+ 
+8.1 界面设计原则
+ 
+原则	说明	实现方式
+所见即所得	用户看到的就是最终效果的近似	实时预览，编辑即时反映
+渐进式展示	新手不被复杂功能淹没	默认精简模式，高级功能折叠
+引导式流程	每一步都有清晰指引	步骤条 + 状态提示 + 操作建议
+友好命名	用通俗易懂的中文标签替代技术术语	"让角色更清晰" 而非 "提高 CFG Scale"
+容错设计	误操作可轻松恢复	版本历史 + 撤销/重做 + 操作确认
+视觉反馈	每个操作都有明确反馈	进度条/动画/状态标签/Toast 提示
+ 
+8.2 页面结构 — 人性化布局
+ 
+text
+text
+┌──────────────────────────────────────────────────────────────┐
+│  TVAiPlatform                              [通知🔔] [用户] [⚙]│
+├──────┬───────────────────────────────────────────────────────┤
+│      │  ┌─────────────────────────────────────────────────┐  │
+│ 导航 │  │  面包屑: 项目 > 第3集 > 场景2 > 镜头5           │  │
+│      │  │  ────────────────────────────────────────────── │  │
+│ 🏠 总览│  │  ┌───────────────────────────────────────────┐ │  │
+│ 🎭 角色│  │  │          主编辑区域                        │ │  │
+│ 📝 剧本│  │  │                                           │ │  │
+│ 🎬 制片│  │  │  ┌────────────────────────────────────┐   │ │  │
+│ ✨ 精修│  │  │  │                                    │   │ │  │
+│ 📋 模板│  │  │  │     视频预览 / 图片预览              │   │ │  │
+│ 📦 输出│  │  │  │                                    │   │ │  │
+│      │  │  │  │  [▶ 播放]  [⏸ 暂停]  [⏹ 停止]        │   │ │  │
+│      │  │  │  │                                    │   │ │  │
+│      │  │  │  └────────────────────────────────────┘   │ │  │
+│      │  │  │                                           │ │  │
+│      │  │  │  ┌────────────────────────────────────┐   │ │  │
+│      │  │  │  │        时间轴编辑器                  │   │ │  │
+│      │  │  │  │  🎬 视频: ████ ██████ ████████     │   │ │  │
+│      │  │  │  │  🎤 人声: ██ ██ █████ ██           │   │ │  │
+│      │  │  │  │  🎵 音乐: ═══════════════════      │   │ │  │
+│      │  │  │  │  📝 字幕: ██ ██ █████ ██           │   │ │  │
+│      │  │  │  │  🔊 音效: △                         │   │ │  │
+│      │  │  │  └────────────────────────────────────┘   │ │  │
+│      │  │  └───────────────────────────────────────────┘ │  │
+│      │  │                                               │  │
+│      │  │  ┌─────────────────────────────────────────┐  │  │
+│      │  │  │          操作面板 / 精修工具              │  │  │
+│      │  │  │  [文本] [图片] [人声] [背景音] [字幕] [视频]│  │  │
+│      │  │  │  ─────────────────────────────────────── │  │  │
+│      │  │  │  当前: 镜头#5 的台词 #2                   │  │  │
+│      │  │  │  (根据选中内容自动切换精修面板)            │  │  │
+│      │  │  │  💡 操作提示: 点击台词可直接修改文字，     │  │  │
+│      │  │  │     修改后点击「重新配音」即可生成新音频   │  │  │
+│      │  │  └─────────────────────────────────────────┘  │  │
+└──────┴──────────────────────────────────────────────────────┘
+ 
+8.3 核心页面与功能
+ 
+页面	显示名称	功能	人性化设计要点
+项目总览	"我的短剧"	项目列表/创建/管理	卡片式展示，带缩略封面和进度百分比
+角色工坊	"角色设计"	角色创建/编辑/参考图生成	引导式创建流程，每步有示例和提示
+剧本创作	"写剧本"	剧本查看/编辑/分镜拆解	左侧大纲树 + 右侧编辑，支持拖拽排序
+分镜预览	"分镜板"	分镜故事板可视化	漫画式分镜排列，点击放大编辑
+制片台	"开始制作"	生产管线控制/进度监控	步骤条 + 进度环 + 状态徽章
+文本精修	"改台词"	台词/旁白/场景描述编辑	卡片式对话列表，点击即编辑
+图片精修	"修图片"	关键帧查看/修图/重绘/替换	画布式编辑器，工具栏直观
+人声精修	"调配音"	逐句配音试听/参数调节/重录	波形可视化 + 一键试听
+背景音精修	"配音乐"	BGM/环境音/音效调节	多轨混音器，可视化调节
+字幕精修	"改字幕"	字幕文本/时间/样式编辑	拖拽式时间轴 + 实时预览
+视频精修	"剪视频"	视频片段裁剪/转场/替换	时间线编辑器 + 逐帧预览
+模板工坊	"调模板"	JSON 模板编辑与管理	可视化 Schema 编辑器
+成片输出	"导出作品"	最终视频预览/导出/批量	预览 + 一键导出 + 批量操作
+ 
+8.4 友好命名映射
+ 
+系统中技术术语在界面上使用友好中文标签：
+ 
+技术术语	界面显示	说明
+CFG Scale	"创意自由度"	滑块旁有提示："数值越大越忠实于描述，越小越有创意"
+Seed	"随机种子"	旁有提示："固定数值可获得一致的生成结果"
+Steps	"绘制精细度"	旁有提示："数值越大细节越丰富，但耗时更长"
+IP-Adapter Weight	"角色相似度"	旁有提示："保持角色看起来像同一个人"
+Inpaint	"局部修改"	"涂抹想修改的区域，描述想要的效果"
+ControlNet	"姿态控制"	"控制角色的动作和姿势"
+LoRA	"风格模型"	"应用特定的角色或画风效果"
+CRF	"画质 vs 文件大小"	滑块："更清晰 ↔ 更小文件"
+TTS Temperature	"语音表现力"	滑块旁有提示："数值越大语音越自然多变"
+Fade In/Out	"渐入/渐出"	音频淡入淡出的通俗表达
+ 
+8.5 文本精修面板
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  ✏️ 改台词                                                │
+│                                                          │
+│  💡 提示: 直接点击台词即可修改，修改后选择「只改字幕」     │
+│     或「重新配音」来决定是否重新生成音频。                 │
+│                                                          │
+│  ┌─ 当前场景概要 ─────────────────────────────────────┐  │
+│  │  场景: 第3集 > 场景2 "雨夜咖啡馆"                   │  │
+│  │  角色: 小明(主角)、小红(女主)                        │  │
+│  │  氛围: 紧张、暧昧                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 对话列表 ────────────────────────────────────────┐  │
+│  │                                                   │  │
+│  │  👤 小明                                            │  │
+│  │  ┌─────────────────────────────────────────────┐  │  │
+│  │  │ "我不相信你说的每一句话"                       │  │  │
+│  │  │  情绪: 😠 生气   语速: 🏃 偏快   音量: 🔊 较大│  │  │
+│  │  │  [▶ 试听] [✏️ 改词] [🔄 重新配音] [🗑️ 删除]  │  │  │
+│  │  └─────────────────────────────────────────────┘  │  │
+│  │                                                   │  │
+│  │  👤 小红                                            │  │
+│  │  ┌─────────────────────────────────────────────┐  │  │
+│  │  │ "你迟早会明白真相的"                           │  │  │
+│  │  │  情绪: 😢 难过   语速: 🐢 偏慢   音量: 🔉 正常│  │  │
+│  │  │  [▶ 试听] [✏️ 改词] [🔄 重新配音] [🗑️ 删除]  │  │  │
+│  │  └─────────────────────────────────────────────┘  │  │
+│  │                                                   │  │
+│  │  [➕ 在下方插入台词]                               │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 旁白 ────────────────────────────────────────────┐  │
+│  │  🔈 "雨越下越大，咖啡馆里的气氛却越来越沉重"        │  │
+│  │  音色: [温暖男声 ▼]  [▶ 试听] [✏️ 改词] [🔄 重录]  │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 批量操作 ────────────────────────────────────────┐  │
+│  │  [🔍 查找替换] [🏃 批量调语速] [😊 批量调情感]     │  │
+│  │  [📥 导出台词本] [📤 导入修改后的台词本]            │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+ 
+8.6 图片精修面板
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  🖼️ 修图片                                                │
+│                                                          │
+│  💡 提示: 不满意 AI 生成的图片？可以局部修改、整体重绘，   │
+│     或直接上传自己制作的图片替换。                         │
+│                                                          │
+│  ┌─ 图片预览 ────────────────────────────────────────┐  │
+│  │  ┌────────────────────────────────────────────┐   │  │
+│  │  │                                            │   │  │
+│  │  │         [当前关键帧 / 参考图]               │   │  │
+│  │  │                                            │   │  │
+│  │  │    [🔍 放大] [🔎 缩小] [1:1] [适配窗口]    │   │  │
+│  │  └────────────────────────────────────────────┘   │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 我想... ────────────────────────────────────────┐  │
+│  │  [🔄 重新画一张]    用相同的描述重新生成            │  │
+│  │  [🎨 局部修改]      涂抹想改的区域，告诉我改成什么  │  │
+│  │  [✏️ 改描述词]      修改画面描述后重新生成          │  │
+│  │  [📤 上传替换]      我有自己做的图片，直接替换      │  │
+│  │  [⚙️ 调整参数]      随机种子/创意自由度/精细度      │  │
+│  │  [🎭 换风格]        参考另一张图的画风              │  │
+│  │  [🔍 更清晰]       AI 放大到更高分辨率             │  │
+│  │  [🖼️ 换背景]       保持角色，换个背景              │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 历史版本 ────────────────────────────────────────┐  │
+│  │  v1 (AI原始) → v2 (局部修改) → v3 (改了描述词)     │  │
+│  │  [↩️ 回退到任意版本] [👀 对比各版本]               │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+ 
+8.7 人声精修面板
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  🎤 调配音                                                │
+│                                                          │
+│  💡 提示: 点击「试听」听效果，不满意可以调参数后重新生成， │
+│     也可以上传自己的录音替换。                             │
+│                                                          │
+│  ┌─ 当前配音 ────────────────────────────────────────┐  │
+│  │  👤 小明    "我不相信你说的每一句话"                 │  │
+│  │  ┌────────────────────────────────────────────┐   │  │
+│  │  │  ～～～∿∿∿∿～～～∿∿∿～～～～～               │   │  │
+│  │  │  [▶ 播放]  [⏹ 停止]  [🔁 循环播放]          │   │  │
+│  │  └────────────────────────────────────────────┘   │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 调整效果 ────────────────────────────────────────┐  │
+│  │  情绪:    [😠 生气 ▼]                              │  │
+│  │  语速:    [🐢──●──────🏃]  偏快                    │  │
+│  │  音调:    [低──●─────高]   中偏高                   │  │
+│  │  音量:    [🔈──●────🔊]   较大                     │  │
+│  │  停顿:    [0.5秒 ▼]                                │  │
+│  │  抢话:    [ ] 与上句重叠（模拟真实对话节奏）         │  │
+│  │                                                     │  │
+│  │  语音引擎: [ChatTTS ▼]   音色: [小明的音色 ▼]      │  │
+│  │                                                     │  │
+│  │  [🔄 重新生成]  [🎚️ 微调当前音频(不变调)]           │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 更多操作 ────────────────────────────────────────┐  │
+│  │  [📤 上传替换]    我有自己录的音频                   │  │
+│  │  [✂️ 裁剪静音]    自动去掉头尾空白                   │  │
+│  │  [🔇 降噪]        去除录音中的杂音                   │  │
+│  │  [🔊 淡入淡出]    让声音更自然地开始和结束           │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 本场景全部台词 ──────────────────────────────────┐  │
+│  │  #1 "我不相信你说的每一句话" 😠 [▶] [🔄]           │  │
+│  │  #2 "你迟早会明白真相的"     😢 [▶] [🔄]           │  │
+│  │  #3 "等等..."               😨 [▶] [🔄]           │  │
+│  │  [🔄 全部重新生成] [📥 导出全部配音]                │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+ 
+8.8 背景音精修面板
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  🎵 配音乐                                                │
+│                                                          │
+│  💡 提示: AI 会根据场景自动生成背景音乐和环境音。          │
+│     你也可以从音效库选取，或上传自己的音乐文件。            │
+│                                                          │
+│  ┌─ 背景音乐 ────────────────────────────────────────┐  │
+│  │  当前: "温柔钢琴，情感，慢节奏"                      │  │
+│  │  ～～～═══════════════════════～～～                │  │
+│  │  [▶ 播放] [⏸ 暂停]                                │  │
+│  │                                                     │  │
+│  │  音乐描述: [温柔钢琴，情感...          ]            │  │
+│  │  [🔄 AI重新生成] [📤 上传替换] [📚 从音效库选]      │  │
+│  │                                                     │  │
+│  │  音量:  [🔈──●────🔊]   渐入: [1.0s]  渐出: [1.0s]│  │
+│  │  循环:  [✓ 自动循环]  循环点: [自动检测] [手动设]    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 环境音 / 音效 ───────────────────────────────────┐  │
+│  │  #1 🌧️ "大雨声"      2.0s ~ 8.0s                  │  │
+│  │     ──∿∿∿∿∿∿∿∿∿∿∿∿∿∿──                            │  │
+│  │     音量: [====●====]  [▶] [🔄 替换] [🗑️ 删除]     │  │
+│  │  #2 🚪 "关门声"       5.2s ~ 5.5s                  │  │
+│  │     ──────∿∿──────                                │  │
+│  │     音量: [======●==]  [▶] [🔄 替换] [🗑️ 删除]     │  │
+│  │                                                     │  │
+│  │  [➕ 添加音效] [🤖 AI生成环境音] [📚 从音效库选]    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 混音预览 ────────────────────────────────────────┐  │
+│  │  [▶ 混合播放全部]                                  │  │
+│  │  背景音乐: [====●====]                              │  │
+│  │  环境音:   [====●====]                              │  │
+│  │  人声:     [======●==]                              │  │
+│  │  音效:     [======●==]                              │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+ 
+8.9 字幕精修面板
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  📝 改字幕                                                │
+│                                                          │
+│  💡 提示: 拖拽字幕条调整显示时间，点击文字直接编辑。        │
+│     AI 可能偶尔识别错字，请检查校对。                      │
+│                                                          │
+│  ┌─ 时间轴字幕 ──────────────────────────────────────┐  │
+│  │  [Sub1 ][Sub2   ][Sub3]    [Sub4       ]          │  │
+│  │   ↑ 拖拽边缘调整时长    ↑ 拖拽整体移动位置          │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 字幕列表 ────────────────────────────────────────┐  │
+│  │  #1  00:01.200 → 00:03.400                         │  │
+│  │      "我不相信你说的每一句话"                        │  │
+│  │      [▶ 对齐播放] [✏️ 编辑] [✂️ 拆分] [🗑️ 删除]    │  │
+│  │  ─────────────────────────────────                  │  │
+│  │  #2  00:04.000 → 00:06.800                         │  │
+│  │      "你迟早会明白真相的"                            │  │
+│  │      [▶ 对齐播放] [✏️ 编辑] [✂️ 拆分] [🗑️ 删除]    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 字幕样式 ────────────────────────────────────────┐  │
+│  │  字体:  [思源黑体 ▼]   字号: [24px]                │  │
+│  │  颜色:  [⬜ #FFFFFF]   描边: [⬛ #000000, 2px]     │  │
+│  │  位置:  [底部居中 ▼]   背景: [半透明黑 ▼]          │  │
+│  │  动画:  [无 ▼]         最大行宽: [80%]             │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 批量操作 ────────────────────────────────────────┐  │
+│  │  [🔄 重新对齐全部]  让 AI 重新听一遍校准时间        │  │
+│  │  [📥 导入SRT]       导入外部编辑好的字幕文件        │  │
+│  │  [📤 导出SRT]       导出当前字幕                    │  │
+│  │  [🔍 查找替换]      批量修改字幕文字                 │  │
+│  │  [⏩ 整体时移]      全部字幕统一前移/后移            │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+ 
+8.10 视频精修面板
+ 
+text
+text
+┌─────────────────────────────────────────────────────────┐
+│  🎬 剪视频                                                │
+│                                                          │
+│  💡 提示: 不满意的片段可以重新生成或上传替换。              │
+│     转场效果让镜头之间的切换更自然。                        │
+│                                                          │
+│  ┌─ 视频预览 ────────────────────────────────────────┐  │
+│  │  ┌────────────────────────────────────────────┐   │  │
+│  │  │                                            │   │  │
+│  │  │         [当前视频片段预览]                   │   │  │
+│  │  │                                            │   │  │
+│  │  │  [▶ 播放] [⏸] [⏪ 逐帧退] [⏩ 逐帧进]      │   │  │
+│  │  └────────────────────────────────────────────┘   │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 我想... ────────────────────────────────────────┐  │
+│  │  [✂️ 裁剪]          去掉不需要的头尾部分            │  │
+│  │  [🔄 重新生成]      用同样的画面重新生成视频         │  │
+│  │  [🖼️ 换起始画面]    用另一张图片重新生成             │  │
+│  │  [📤 上传替换]      我有自己剪的视频                 │  │
+│  │  [✏️ 改运动描述]    比如"缓慢推进"改成"快速后退"     │  │
+│  │  [⏩ 变速]          让视频播放更快或更慢              │  │
+│  │  [🔁 倒放]          让视频倒着播放                   │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 镜头衔接 ────────────────────────────────────────┐  │
+│  │  前转场: [硬切 ▼]    后转场: [柔和过渡 ▼]           │  │
+│  │  转场时长: [0.5s]    [▶ 预览转场效果]               │  │
+│  │  可选: 硬切 / 柔和过渡 / 淡入淡出 / 滑动 / 缩放     │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ 画面调色 ────────────────────────────────────────┐  │
+│  │  亮度:   [暗──●────亮]                              │  │
+│  │  对比度: [淡──●────强]                              │  │
+│  │  饱和度: [灰──●────艳]                              │  │
+│  │  色温:   [冷──●────暖]                              │  │
+│  │  滤镜:   [无 ▼]  [上传自定义调色文件]               │  │
+│  │  画面:   [自由裁切] [16:9] [竖屏9:16] [方形1:1]     │  │
+│  │  防抖:   [🤖 AI防抖]                                │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+ 
+ 
+九、项目目录结构
+ 
+text
+text
+/workspace/TVAiPlatform/
+├── config.yaml                     # 全局配置(各服务地址: 本地/第三方)
+├── .env                            # 环境变量(API Key 等敏感信息)
+├── .python-version                 # Python 版本锁定 (3.12)
+├── .nvmrc                          # Node.js 版本锁定 (22)
+├── .tool-versions                  # asdf 版本管理 (可选)
+├── docs/
+│   └── DEVELOPMENT_SPECIFICATION.md
+│
+├── api/                            # FastAPI 后端
+│   ├── pyproject.toml
+│   ├── requirements.txt
+│   ├── requirements-dev.txt
+│   ├── main.py
+│   ├── config.py                   # 配置管理(服务地址本地/远程/三方切换)
+│   ├── models/
+│   │   ├── character.py
+│   │   ├── project.py
+│   │   ├── script.py
+│   │   ├── production.py
+│   │   ├── template.py             # JSON 模板模型
+│   │   └── summary.py              # 分层摘要模型
+│   ├── services/
+│   │   ├── character_consistency.py
+│   │   ├── script_service.py       # Dify 调用(本地/三方平台)
+│   │   ├── comfyui_runner.py       # ComfyUI 调用(本地/远程/云)
+│   │   ├── tts_service.py          # TTS 服务(本地/三方 API)
+│   │   ├── chattts_client.py
+│   │   ├── subtitle_service.py
+│   │   ├── sync_engine.py
+│   │   ├── ffmpeg_service.py
+│   │   ├── production_pipeline.py
+│   │   ├── context_compressor.py   # 上下文压缩引擎
+│   │   ├── summary_service.py      # 分层摘要服务
+│   │   ├── template_service.py     # JSON 模板管理服务
+│   │   ├── storage_optimizer.py    # 存储空间优化
+│   │   ├── global_settings.py      # 全局设定管理
+│   │   ├── text_editor.py          # 文本手工编辑服务
+│   │   ├── image_editor.py         # 图片手工编辑服务(局部重绘/上传替换)
+│   │   ├── audio_editor.py         # 音频手工编辑服务(变速/降噪/裁剪)
+│   │   └── video_editor.py         # 视频手工编辑服务(裁剪/转场/滤镜)
+│   ├── routers/
+│   │   ├── projects.py
+│   │   ├── characters.py
+│   │   ├── scripts.py
+│   │   ├── production.py
+│   │   ├── media.py
+│   │   ├── templates.py            # 模板管理路由
+│   │   ├── settings.py             # 全局设定路由
+│   │   └── editor.py               # 手工编辑专用路由
+│   ├── workflows/                  # ComfyUI 工作流模板
+│   │   ├── character_reference.json
+│   │   ├── keyframe_generation.json
+│   │   ├── image_to_video_wan.json
+│   │   ├── image_to_video_ltx.json
+│   │   ├── inpaint.json            # 局部重绘工作流
+│   │   └── multi_character_compose.json
+│   ├── dify_apps/
+│   │   ├── script_writer.yaml
+│   │   ├── dialogue_generator.yaml
+│   │   └── storyboard_splitter.yaml
+│   └── json_templates/             # 内置 JSON 模板（初始化时导入数据库）
+│       ├── script_outline.json
+│       ├── dialogue.json
+│       ├── storyboard.json
+│       ├── character_profile.json
+│       ├── scene_description.json
+│       └── emotion_tag.json
+│
+├── web/
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   ├── .eslintrc.cjs
+│   ├── src/
+│   │   ├── views/
+│   │   │   ├── Dashboard.vue           # 项目总览 "我的短剧"
+│   │   │   ├── CharacterStudio.vue     # 角色工坊 "角色设计"
+│   │   │   ├── ScriptEditor.vue        # 剧本创作 "写剧本"
+│   │   │   ├── Storyboard.vue          # 分镜预览 "分镜板"
+│   │   │   ├── Production.vue          # 制片台 "开始制作"
+│   │   │   ├── TimelineEditor.vue      # 时间轴编辑器
+│   │   │   ├── TextAdjust.vue          # 文本精修 "改台词"
+│   │   │   ├── ImageAdjust.vue         # 图片精修 "修图片"
+│   │   │   ├── VoiceAdjust.vue         # 人声精修 "调配音"
+│   │   │   ├── BgmAdjust.vue           # 背景音精修 "配音乐"
+│   │   │   ├── SubtitleAdjust.vue      # 字幕精修 "改字幕"
+│   │   │   ├── VideoAdjust.vue         # 视频精修 "剪视频"
+│   │   │   ├── TemplateWorkshop.vue    # 模板工坊 "调模板"
+│   │   │   ├── GlobalSettings.vue      # 全局设定
+│   │   │   └── Export.vue              # 成片输出 "导出作品"
+│   │   ├── components/
+│   │   │   ├── Timeline/
+│   │   │   │   ├── VideoTrack.vue
+│   │   │   │   ├── AudioTrack.vue
+│   │   │   │   ├── SubtitleTrack.vue
+│   │   │   │   └── Playhead.vue
+│   │   │   ├── Character/
+│   │   │   │   ├── ProfileCard.vue
+│   │   │   │   ├── AgeVariantCard.vue
+│   │   │   │   ├── WardrobeCard.vue
+│   │   │   │   └── ReferenceSheet.vue
+│   │   │   ├── Editor/
+│   │   │   │   ├── TextEditor.vue       # 文本编辑器组件
+│   │   │   │   ├── ImageEditor.vue      # 图片编辑器组件(局部重绘)
+│   │   │   │   ├── AudioWaveform.vue    # 音频波形+编辑组件
+│   │   │   │   ├── BgmMixer.vue         # BGM混音组件
+│   │   │   │   ├── SubtitleEditor.vue   # 字幕编辑器组件
+│   │   │   │   ├── VideoTrimmer.vue     # 视频裁剪组件
+│   │   │   │   └── JsonTemplateEditor.vue  # JSON 模板可视化编辑器
+│   │   │   ├── Settings/
+│   │   │   │   ├── GlobalSettingsForm.vue   # 全局设定表单
+│   │   │   │   ├── CustomDimensionAdder.vue # 自定义维度添加器
+│   │   │   │   └── SceneOverridePanel.vue   # 场景级覆盖面板
+│   │   │   └── Preview/
+│   │   │       ├── VideoPlayer.vue
+│   │   │       └── SubtitleOverlay.vue
+│   │   ├── stores/
+│   │   │   ├── project.ts
+│   │   │   ├── character.ts
+│   │   │   ├── timeline.ts
+│   │   │   ├── production.ts
+│   │   │   ├── template.ts           # 模板状态管理
+│   │   │   └── settings.ts           # 全局设定状态管理
+│   │   └── api/
+│   │       ├── index.ts
+│   │       ├── project.ts
+│   │       ├── character.ts
+│   │       ├── production.ts
+│   │       ├── template.ts           # 模板 API 封装
+│   │       ├── settings.ts           # 全局设定 API 封装
+│   │       └── editor.ts             # 手工编辑 API 封装
+│   └── vite.config.ts
+│
+├── tts/
+│   ├── chattts_server.py
+│   └── requirements.txt
+│
+├── data/
+│   ├── postgres/
+│   └── redis/
+│
+├── outputs/
+│   ├── projects/{project_id}/
+│   │   ├── characters/
+│   │   ├── keyframes/               # WebP 格式
+│   │   ├── clips/                    # H.265 MP4
+│   │   ├── voices/                   # FLAC 格式
+│   │   ├── bgm/                      # FLAC 格式
+│   │   ├── subtitles/
+│   │   ├── summaries/                # 分层摘要文件
+│   │   └── final/                    # 最终输出
+│   └── temp/                         # 临时文件（24h 自动清理）
+│
+├── scripts/
+│   ├── start_all.sh
+│   ├── stop_all.sh
+│   ├── init_db.py
+│   ├── init_templates.py             # 初始化内置 JSON 模板
+│   ├── check_versions.py
+│   ├── cleanup_temp.sh               # 定时清理临时文件
+│   └── batch_export.py
+│
+└── supervisord.conf
+ 
+ 
+十、API 接口设计
+ 
+10.1 项目管理
+ 
+text
+text
+POST   /api/projects                      # 创建项目
+GET    /api/projects                      # 项目列表
+GET    /api/projects/{id}                 # 项目详情
+PUT    /api/projects/{id}                 # 更新项目
+DELETE /api/projects/{id}                 # 删除项目
+POST   /api/projects/{id}/duplicate       # 复制项目
+ 
+10.2 全局设定
+ 
+text
+text
+GET    /api/projects/{id}/settings         # 获取项目全局设定
+PUT    /api/projects/{id}/settings         # 更新项目全局设定
+POST   /api/projects/{id}/settings/dimensions  # 添加自定义维度
+DELETE /api/projects/{id}/settings/dimensions/{key}  # 删除自定义维度
+GET    /api/projects/{id}/scenes/{scene_id}/overrides  # 获取场景覆盖
+PUT    /api/projects/{id}/scenes/{scene_id}/overrides  # 更新场景覆盖
+ 
+10.3 集数管理
+ 
+text
+text
+POST   /api/projects/{id}/episodes        # 添加集
+GET    /api/projects/{id}/episodes        # 集列表
+GET    /api/episodes/{id}                 # 集详情
+PUT    /api/episodes/{id}                 # 更新集
+DELETE /api/episodes/{id}                 # 删除集
+PUT    /api/episodes/{id}/reorder         # 调整集序
+ 
+10.4 角色管理 (见 7.1.3)
+ 
+10.5 剧本与分镜
+ 
+text
+text
+POST   /api/episodes/{id}/generate-script # AI生成剧本
+GET    /api/episodes/{id}/script          # 获取剧本
+PUT    /api/episodes/{id}/script          # 更新剧本
+POST   /api/episodes/{id}/split-storyboard # 分镜拆解
+GET    /api/episodes/{id}/storyboard      # 获取分镜
+PUT    /api/shots/{id}                    # 更新镜头
+ 
+10.6 生产管线
+ 
+text
+text
+POST   /api/episodes/{id}/produce         # 启动单集生产
+GET    /api/episodes/{id}/progress        # 生产进度
+POST   /api/episodes/{id}/produce/batch   # 批量生产多集(支持任意集数范围)
+POST   /api/shots/{id}/regenerate-keyframe # 重新生成关键帧
+POST   /api/shots/{id}/regenerate-video   # 重新生成视频
+POST   /api/dialogues/{id}/regenerate-voice # 重新生成配音
+ 
+10.7 模板管理
+ 
+text
+text
+GET    /api/templates                              # 获取所有模板列表
+GET    /api/templates/{slug}                        # 获取指定模板详情
+PUT    /api/templates/{slug}                        # 更新模板
+POST   /api/templates                              # 创建自定义模板
+DELETE /api/templates/{slug}                        # 删除自定义模板
+POST   /api/templates/{slug}/reset                  # 恢复默认值
+GET    /api/templates/{slug}/versions               # 版本历史
+POST   /api/templates/{slug}/revert/{version}       # 回退版本
+POST   /api/templates/{slug}/preview                # 预览模板效果
+POST   /api/templates/import                        # 导入模板
+GET    /api/templates/{slug}/export                 # 导出模板
+ 
+10.8 摘要管理
+ 
+text
+text
+GET    /api/projects/{id}/summaries/project         # 获取项目级摘要
+POST   /api/projects/{id}/summaries/project/regenerate  # 重新生成项目级摘要
+GET    /api/projects/{id}/summaries/arcs             # 获取所有弧摘要
+GET    /api/projects/{id}/summaries/episodes         # 获取所有集摘要
+GET    /api/episodes/{id}/summary                    # 获取指定集摘要
+POST   /api/episodes/{id}/summary/regenerate         # 重新生成集摘要
+ 
+10.9 TTS 引擎配置
+ 
+text
+text
+GET    /api/tts/engines                    # 获取可用 TTS 引擎列表
+GET    /api/tts/engines/{name}/status      # 检查引擎运行状态
+PUT    /api/tts/engines/{name}/config      # 修改引擎配置
+POST   /api/tts/preview                    # 预览合成
+ 
+10.10 手工编辑 API
+ 
+文本编辑
+ 
+text
+text
+PUT    /api/editor/dialogues/{id}/text     # 修改台词文本
+PUT    /api/editor/dialogues/{id}/emotion  # 修改情感/语速/音量参数
+PUT    /api/editor/shots/{id}/description  # 修改画面描述/提示词
+PUT    /api/editor/shots/{id}/narration    # 修改旁白文本
+POST   /api/editor/dialogues               # 插入新台词
+DELETE /api/editor/dialogues/{id}          # 删除台词
+POST   /api/editor/episodes/{id}/find-replace # 全文查找替换
+POST   /api/editor/episodes/{id}/export-script # 导出台词本
+POST   /api/editor/episodes/{id}/import-script # 导入台词本
+ 
+图片编辑
+ 
+text
+text
+POST   /api/editor/images/{id}/regenerate     # 重新生成
+POST   /api/editor/images/{id}/inpaint        # 局部重绘
+POST   /api/editor/images/{id}/upload-replace # 上传替换
+PUT    /api/editor/images/{id}/params         # 调整生成参数
+POST   /api/editor/images/{id}/upscale        # 超分辨率放大
+POST   /api/editor/images/{id}/remove-bg      # 去背景
+POST   /api/editor/images/{id}/replace-bg     # 换背景
+GET    /api/editor/images/{id}/versions       # 历史版本列表
+POST   /api/editor/images/{id}/revert/{ver}   # 回退版本
+ 
+人声编辑
+ 
+text
+text
+POST   /api/editor/voices/{id}/regenerate     # 重新生成
+POST   /api/editor/voices/{id}/upload-replace # 上传替换
+PUT    /api/editor/voices/{id}/params         # 调整参数
+POST   /api/editor/voices/{id}/trim-silence   # 静音修剪
+POST   /api/editor/voices/{id}/denoise        # 降噪
+PUT    /api/editor/voices/{id}/timing         # 逐字时间微调
+POST   /api/editor/voices/batch-regenerate    # 批量重新生成
+POST   /api/editor/voices/batch-params        # 批量调整参数
+GET    /api/editor/voices/export              # 导出全部配音
+ 
+背景音编辑
+ 
+text
+text
+POST   /api/editor/bgm/{id}/regenerate        # AI重新生成BGM
+POST   /api/editor/bgm/{id}/upload-replace    # 上传替换BGM
+PUT    /api/editor/bgm/{id}/volume            # 调整音量/淡入/淡出
+PUT    /api/editor/bgm/{id}/loop              # 设置循环点
+POST   /api/editor/sfx                        # 添加音效
+PUT    /api/editor/sfx/{id}/timing            # 调整音效时间点
+PUT    /api/editor/sfx/{id}/volume            # 调整音效音量
+DELETE /api/editor/sfx/{id}                   # 删除音效
+POST   /api/editor/sfx/{id}/upload-replace    # 上传替换音效
+POST   /api/editor/mix/preview                # 混音预览
+PUT    /api/editor/mix/levels                 # 调整混音比例
+ 
+字幕编辑
+ 
+text
+text
+PUT    /api/editor/subtitles/{id}/text        # 修改字幕文本
+PUT    /api/editor/subtitles/{id}/timing      # 修改时间
+POST   /api/editor/subtitles/{id}/split       # 拆分字幕
+POST   /api/editor/subtitles/merge            # 合并字幕
+DELETE /api/editor/subtitles/{id}             # 删除字幕
+PUT    /api/editor/subtitles/style            # 修改全局样式
+POST   /api/editor/subtitles/re-align         # 重新对齐
+POST   /api/editor/subtitles/import           # 导入 SRT
+GET    /api/editor/subtitles/export           # 导出 SRT/VTT
+POST   /api/editor/subtitles/find-replace     # 查找替换
+POST   /api/editor/subtitles/time-shift       # 整体时移
+ 
+视频编辑
+ 
+text
+text
+PUT    /api/editor/videos/{id}/trim           # 裁剪起止点
+POST   /api/editor/videos/{id}/regenerate     # 重新生成
+POST   /api/editor/videos/{id}/replace-keyframe # 替换关键帧后重新生成
+POST   /api/editor/videos/{id}/upload-replace # 上传替换
+PUT    /api/editor/videos/{id}/motion         # 修改运动描述
+PUT    /api/editor/videos/{id}/speed          # 变速
+POST   /api/editor/videos/{id}/reverse        # 倒放
+PUT    /api/editor/videos/{id}/transition     # 设置转场
+PUT    /api/editor/videos/{id}/color          # 调整色彩
+POST   /api/editor/videos/{id}/filter         # 应用滤镜/LUT
+PUT    /api/editor/videos/{id}/crop           # 裁切/缩放
+POST   /api/editor/videos/{id}/stabilize      # AI防抖
+ 
+10.11 媒体通用
+ 
+text
+text
+GET    /api/media/{id}/preview            # 媒体预览URL
+ 
+10.12 健康检查
+ 
+text
+text
+GET    /api/health                         # API 自身健康状态
+GET    /api/health/services                # 所有依赖服务连通性
+GET    /api/health/versions                # 各组件版本信息
+GET    /api/health/storage                 # 存储空间使用情况
+ 
+10.13 WebSocket 实时通信
+ 
+text
+text
+WS /ws/production/{project_id}           # 生产进度推送
+WS /ws/preview/{episode_id}              # 实时预览更新
+ 
+ 
+十一、Dify 集成方案 — 模板驱动
+ 
+11.1 接入模式
+ 
+Dify 支持两种接入模式，通过 config.yaml 切换：
+ 
+模式	api_url 示例	说明
+本地部署	http://127.0.0.1:5001	本地 Docker 运行 Dify
+第三方云平台	https://api.dify.ai/v1	Dify Cloud 或自建远程实例
+ 
+11.2 Dify 应用配置
+ 
+创建 3 个专用工作流应用，每个应用的提示词中注入 JSON 模板：
+ 
+应用1: 剧本创作助手
+ 
+yaml
+yaml
+名称: script_writer
+类型: workflow
+输入:
+  - genre: 题材
+  - theme: 主题
+  - characters: 角色列表(JSON)
+  - episode_count: 集数
+  - episode_duration: 每集时长
+  - global_settings: 全局设定上下文(自动生成)
+  - output_json_template: 剧本大纲 JSON 模板(从模板工坊获取)
+  - system_prompt_suffix: 模板对应的系统提示词补充
+LLM: qwen2.5:14b (通过Ollama) 或 第三方模型
+提示词策略: 全局设定 + JSON模板示例 → LLM 严格按模板结构输出
+ 
+应用2: 对话生成器
+ 
+yaml
+yaml
+名称: dialogue_generator
+类型: conversation
+输入:
+  - scene_context: 场景上下文
+  - characters: 参与角色
+  - plot_point: 剧情点
+  - global_settings: 全局设定上下文
+  - output_json_template: 对话 JSON 模板
+  - system_prompt_suffix: 模板对应的系统提示词补充
+输出:
+  - dialogues: 对话列表(严格按 dialogue 模板的 JSON 结构)
+ 
+应用3: 分镜拆解器
+ 
+yaml
+yaml
+名称: storyboard_splitter
+类型: workflow
+输入:
+  - script: 完整剧本
+  - shot_style: 镜头风格
+  - global_settings: 全局设定上下文
+  - output_json_template: 分镜 JSON 模板
+  - system_prompt_suffix: 模板对应的系统提示词补充
+输出:
+  - storyboard: 分镜列表(严格按 storyboard 模板的 JSON 结构)
+ 
+11.3 提示词注入示例
+ 
+Dify 工作流中的提示词模板示例（以剧本创作为例）：
+ 
+text
+text
+你是一位专业的短剧编剧。请根据以下要求创作剧本。
+
+=== 全局设定 ===
+{global_settings}
+
+=== 创作要求 ===
+题材: {genre}
+主题: {theme}
+角色: {characters}
+集数: {episode_count}
+每集时长: {episode_duration}秒
+
+=== 输出格式要求 ===
+请严格按照以下 JSON 结构输出，不要输出任何其他文字：
+
+{output_json_template}
+
+{system_prompt_suffix}
+
+注意：
+1. 输出必须是合法的 JSON 格式
+2. 所有字段都必须填写，不要省略
+3. 字段值的类型必须与模板一致（如 integer 不要写成 string）
+4. 数组字段至少包含 1 个元素
+ 
+ 
+十二、ComfyUI 集成方案
+ 
+12.1 接入模式
+ 
+模式	base_url 示例	说明
+本地部署	http://127.0.0.1:8188	本机 GPU 运行
+局域网远程	http://192.168.1.100:8188	内网 GPU 服务器
+远程 HTTPS	https://gpu-server.example.com:8188	远程 GPU 服务器
+云平台	https://comfyui.cloud.example.com	RunComfy / ThinkDiffusion 等
+ 
+12.2 ComfyUI 客户端
+ 
+python
+python
+class ComfyUIConfig:
+    """ComfyUI 连接配置"""
+    def __init__(self, base_url: str, ssl_verify: bool = True, timeout: int = 600) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.ssl_verify = ssl_verify
+        self.timeout = timeout
+        self.scheme = "https" if base_url.startswith("https://") else "http"
+        self.is_remote = not ("127.0.0.1" in base_url or "localhost" in base_url)
+
+    def create_http_client(self) -> httpx.AsyncClient:
+        transport = None
+        if self.scheme == "https" and not self.ssl_verify:
+            transport = httpx.AsyncHTTPTransport(verify=False)
+        return httpx.AsyncClient(transport=transport, timeout=httpx.Timeout(self.timeout, connect=30.0))
+
+
+class ComfyUIClientAdapter:
+    """ComfyUI 客户端适配器 — 统一本地/远程/云调用"""
+    def __init__(self, config: ComfyUIConfig) -> None:
+        self.config = config
+        self.client_id = str(uuid.uuid4())
+        self._client: httpx.AsyncClient | None = None
+
+    async def health_check(self) -> bool:
+        client = await self._get_client()
+        try:
+            resp = await client.get(f"{self.config.base_url}/system_stats")
+            return resp.status_code == 200
+        except httpx.ConnectError:
+            return False
+ 
+12.3 工作流模板
+ 
+工作流	用途	关键节点
+character_reference_sheet	角色多视角参考图	LoadCheckpoint → IP-Adapter → ControlNet → Sampler → SaveImage
+keyframe_generation	场景关键帧	LoadCheckpoint → LoadReferenceImage → IP-Adapter(face) → ControlNet(OpenPose) → Sampler → SaveImage
+inpaint	局部重绘	LoadCheckpoint → LoadImage → LoadMask → InpaintModelConditioning → Sampler → SaveImage
+image_to_video_wan	图生视频(Wan 2.2)	视频生成节点
+image_to_video_ltx	图生视频(LTX-2.3)	视频生成节点
+multi_character_compose	多角色同框	Regional Prompting + 分层合成
+ 
+12.4 一致性保障技术选型
+ 
+技术	用途	ComfyUI 节点
+IP-Adapter	面部特征迁移	IPAdapterAdvanced
+InstantID	面部身份保持	InstantID Face Analysis
+ControlNet OpenPose	身体姿态控制	ControlNetApply
+ControlNet Depth	深度/遮挡控制	DepthAnything
+Regional Prompting	多角色分区提示	RegionalSampler
+固定 Seed	随机性控制	KSampler seed
+角色 LoRA	角色风格锁定	LoraLoader
+ 
+ 
+十三、TTS 集成方案
+ 
+13.1 接入模式
+ 
+引擎	本地部署	第三方平台	说明
+ChatTTS	http://127.0.0.1:8090	—	开源，本地优先
+CosyVoice	http://127.0.0.1:8091	阿里云 CosyVoice API	本地/云端统一接口
+GPT-SoVITS	http://127.0.0.1:8092	第三方托管实例	本地/云端统一接口
+FishAudio	—	https://api.fish.audio	第三方 TTS API
+MiniMax Speech	—	https://api.minimax.chat	第三方 TTS API
+ 
+13.2 引擎配置
+ 
+yaml
+yaml
+tts:
+  engine: "chattts"
+  engines:
+    chattts:
+      server_url: "http://127.0.0.1:8090"
+      default_temperature: 0.7
+      default_top_p: 0.7
+      default_top_k: 20
+    cosyvoice:
+      server_url: "http://127.0.0.1:8091"
+    gpt-sovits:
+      server_url: "http://127.0.0.1:8092"
+    fishaudio:
+      server_url: "https://api.fish.audio"
+      api_key: ""
+    minimax:
+      server_url: "https://api.minimax.chat"
+      api_key: ""
+ 
+ 
+十四、本地部署方案
+ 
+14.1 环境准备
+ 
+bash
+bash
+# Python 3.12
+pyenv install 3.12.8 && pyenv local 3.12.8
+
+# Node.js 22 LTS
+nvm install 22 && nvm use 22
+corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+# PostgreSQL 17 / Redis 7.4 / FFmpeg 7.1
+# 按操作系统官方文档安装
+ 
+14.2 项目初始化
+ 
+bash
+bash
+cd /workspace/TVAiPlatform
+
+# 后端
+cd api
+python -m venv .venv && source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# 前端
+cd ../web && pnpm install
+
+# 数据库
+cd ../api && python -m alembic upgrade head
+
+# 初始化内置 JSON 模板
+python ../scripts/init_templates.py
+ 
+14.3 全局配置文件 (config.yaml)
+ 
+yaml
+yaml
+server:
+  host: "127.0.0.1"
+  api_port: 8100
+  web_port: 3100
+
+comfyui:
+  base_url: "http://127.0.0.1:8188"
+  timeout: 600
+  upload_timeout: 120
+  ssl_verify: false
+
+dify:
+  api_url: "http://127.0.0.1:5001"
+  api_key: ""
+
+tts:
+  engine: "chattts"
+  engines:
+    chattts:
+      server_url: "http://127.0.0.1:8090"
+      default_temperature: 0.7
+      default_top_p: 0.7
+      default_top_k: 20
+    cosyvoice:
+      server_url: "http://127.0.0.1:8091"
+    gpt-sovits:
+      server_url: "http://127.0.0.1:8092"
+    fishaudio:
+      server_url: "https://api.fish.audio"
+      api_key: ""
+    minimax:
+      server_url: "https://api.minimax.chat"
+      api_key: ""
+
+database:
+  type: "postgresql"
+  postgres_url: "postgresql://tvai:tvai123@127.0.0.1:5432/tvai"
+  pool_size: 10
+  max_overflow: 20
+
+redis:
+  url: "redis://127.0.0.1:6379/0"
+
+storage:
+  type: "local"
+  local_path: "./outputs"
+  # 存储优化设置
+  image_format: "webp"
+  image_quality: 85
+  audio_format: "flac"
+  video_codec: "libx265"
+  video_crf: 28
+  temp_cleanup_hours: 24
+  max_versions_per_asset: 3
+ 
+14.4 Supervisor 配置
+ 
+ini
+ini
+[supervisord]
+nodaemon=true
+logfile=./data/supervisord.log
+
+[program:tvai-api]
+command=/workspace/TVAiPlatform/api/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8100
+directory=/workspace/TVAiPlatform/api
+autostart=true
+autorestart=true
+stdout_logfile=./data/logs/api.log
+environment=PYTHONUNBUFFERED="1"
+
+[program:tvai-web]
+command=pnpm dev --host 127.0.0.1 --port 3100
+directory=/workspace/TVAiPlatform/web
+autostart=true
+autorestart=true
+stdout_logfile=./data/logs/web.log
+
+[program:chattts]
+command=/workspace/TVAiPlatform/tts/.venv/bin/python chattts_server.py --host 127.0.0.1 --port 8090
+directory=/workspace/TVAiPlatform/tts
+autostart=true
+autorestart=true
+stdout_logfile=./data/logs/chattts.log
+
+[program:redis]
+command=redis-server --dir ./data/redis
+autostart=true
+autorestart=true
+stdout_logfile=./data/logs/redis.log
+
+[program:postgresql]
+command=postgres -D ./data/postgres
+user=postgres
+autostart=true
+autorestart=true
+stdout_logfile=./data/logs/postgresql.log
+
+[program:temp-cleaner]
+command=/bin/bash -c "while true; do /workspace/TVAiPlatform/scripts/cleanup_temp.sh; sleep 3600; done"
+autostart=true
+autorestart=true
+stdout_logfile=./data/logs/cleanup.log
+ 
+14.5 一键启停脚本
+ 
+bash
+bash
+#!/bin/bash
+# scripts/start_all.sh
+set -euo pipefail
+cd /workspace/TVAiPlatform
+
+echo "=== 启动 TVAiPlatform ==="
+
+pg_ctlcluster 17 main start 2>/dev/null || true
+redis-server --daemonize yes --dir ./data/redis
+
+source api/.venv/bin/activate
+cd api && python -m alembic upgrade head && cd ..
+
+# 初始化内置模板（首次运行）
+python scripts/init_templates.py 2>/dev/null || true
+
+cd tts && nohup python chattts_server.py --host 127.0.0.1 --port 8090 > ../data/logs/chattts.log 2>&1 &
+cd ..
+cd api && nohup uvicorn main:app --host 127.0.0.1 --port 8100 > ../data/logs/api.log 2>&1 &
+cd ..
+cd web && nohup pnpm dev --host 127.0.0.1 --port 3100 > ../data/logs/web.log 2>&1 &
+cd ..
+
+# 启动定时清理任务
+nohup bash -c "while true; do ./scripts/cleanup_temp.sh; sleep 3600; done" > data/logs/cleanup.log 2>&1 &
+
+echo "=== 所有服务已启动 ==="
+echo "  前端:       http://127.0.0.1:3100"
+echo "  API:        http://127.0.0.1:8100"
+echo "  PostgreSQL: 127.0.0.1:5432 (v17)"
+echo "  Redis:      127.0.0.1:6379 (v7.4)"
+echo "  ComfyUI:    $(grep base_url config.yaml | head -1 | awk '{print $2}')"
+echo "  Dify:       $(grep api_url config.yaml | head -1 | awk '{print $2}')"
+ 
+14.6 版本兼容性检查脚本
+ 
+python
+python
+#!/usr/bin/env python3
+"""scripts/check_versions.py"""
+
+import sys, subprocess, shutil
+
+REQUIREMENTS = {
+    "python":  {"cmd": None, "min": (3, 12, 0), "max": (3, 13, 0)},
+    "node":    {"cmd": ["node", "--version"], "min": (22, 0, 0), "max": (23, 0, 0)},
+    "pnpm":    {"cmd": ["pnpm", "--version"], "min": (9, 0, 0), "max": (10, 0, 0)},
+    "ffmpeg":  {"cmd": ["ffmpeg", "-version"], "min": (7, 0, 0), "max": (8, 0, 0)},
+    "psql":    {"cmd": ["psql", "--version"], "min": (17, 0, 0), "max": (18, 0, 0)},
+    "redis":   {"cmd": ["redis-server", "--version"], "min": (7, 4, 0), "max": (8, 0, 0)},
+}
+
+def parse_version(raw: str) -> tuple[int, ...]:
+    digits = []
+    for part in raw.replace("v", "").split("."):
+        try: digits.append(int("".join(c for c in part if c.isdigit())))
+        except ValueError: break
+    return tuple(digits[:3])
+
+def check(name: str, spec: dict) -> bool:
+    if spec["cmd"] is None: ver = sys.version_info[:3]
+    else:
+        if not shutil.which(spec["cmd"][0]):
+            print(f"  [MISS] {name}: 未安装"); return False
+        result = subprocess.run(spec["cmd"], capture_output=True, text=True)
+        ver = parse_version(result.stdout + result.stderr)
+    ok = spec["min"] <= ver < spec["max"]
+    print(f"  [{'OK' if ok else 'FAIL'}] {name}: {'.'.join(map(str, ver))}  (需要 >= {'.'.join(map(str, spec['min']))})")
+    return ok
+
+def main() -> None:
+    print("=== TVAiPlatform 版本兼容性检查 ===\n")
+    results = [check(n, s) for n, s in REQUIREMENTS.items()]
+    if all(results): print("\n✓ 所有版本检查通过")
+    else: print("\n✗ 部分版本不满足要求"); sys.exit(1)
+
+if __name__ == "__main__": main()
+ 
+14.7 外部服务依赖
+ 
+服务	版本	本地部署	第三方平台	端口
+PostgreSQL	17.x	本地进程	阿里云 RDS / AWS RDS 等	5432
+Redis	7.4.x	本地进程	阿里云 Redis / AWS ElastiCache 等	6379
+ComfyUI	—	本地进程	远程 GPU 服务器 / RunComfy / ThinkDiffusion	8188
+Dify	—	本地 Docker	Dify Cloud / 自建远程实例	5001
+Ollama	—	本地进程	OpenAI API / DeepSeek API / 通义千问 API	11434
+ChatTTS	0.9	本地进程	—	8090
+CosyVoice	—	本地进程	阿里云 CosyVoice API	8091
+GPT-SoVITS	—	本地进程	第三方托管实例	8092
+FFmpeg	7.1.x	系统安装	—	—
+ 
+ 
+十五、前端依赖版本锁定 (package.json)
+ 
+json
+json
+{
+  "name": "tvai-platform-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.0.0", "pnpm": ">=9.0.0" },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit",
+    "lint": "eslint src --ext .ts,.vue"
+  },
+  "dependencies": {
+    "vue": "3.5.13",
+    "vue-router": "4.5.0",
+    "pinia": "2.2.6",
+    "element-plus": "2.9.1",
+    "@element-plus/icons-vue": "2.3.1",
+    "axios": "1.7.9",
+    "dayjs": "1.11.13",
+    "wavesurfer.js": "7.8.8",
+    "fabric": "6.4.3",
+    "monaco-editor": "0.52.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "5.2.1",
+    "typescript": "5.7.3",
+    "vite": "6.0.7",
+    "vue-tsc": "2.2.0",
+    "@types/node": "22.10.5",
+    "@types/fabric": "5.3.9",
+    "sass": "1.83.0",
+    "eslint": "9.17.0",
+    "typescript-eslint": "8.18.2",
+    "eslint-plugin-vue": "9.32.0",
+    "unplugin-auto-import": "0.18.6",
+    "unplugin-vue-components": "0.27.5"
+  }
+}
+ 
+fabric 用于图片精修面板的 Canvas 交互（局部重绘选区、标注等）。wavesurfer.js 用于音频波形可视化。monaco-editor 用于模板工坊中的 JSON 编辑器。
+ 
+ 
+十六、后端依赖版本锁定 (requirements.txt)
+ 
+text
+text
+# ── Web 框架 ──
+fastapi==0.115.0
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+
+# ── 数据模型与校验 ──
+pydantic==2.10.3
+pydantic-settings==2.7.0
+
+# ── 数据库 ──
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+alembic==1.14.0
+
+# ── Redis ──
+redis==5.2.1
+
+# ── HTTP 客户端 ──
+httpx==0.28.1
+aiohttp==3.11.11
+
+# ── 音视频处理 ──
+ffmpeg-python==0.2.0
+
+# ── 音频编辑 ──
+pydub==0.25.1
+
+# ── 图像处理 ──
+Pillow==11.1.0
+
+# ── 配置管理 ──
+pyyaml==6.0.2
+python-dotenv==1.0.1
+
+# ── WebSocket ──
+websockets==14.1
+
+# ── 任务队列 ──
+celery==5.4.0
+
+# ── 文件处理 ──
+aiofiles==24.1.0
+
+# ── 安全 ──
+python-jose[cryptography]==3.3.0
+
+# ── JSON Schema 验证 ──
+jsonschema==4.23.0
+ 
+开发依赖 (requirements-dev.txt):
+text
+text
+mypy==1.14.1
+ruff==0.8.6
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx
+ 
+ 
+十七、pyproject.toml
+ 
+toml
+toml
+[project]
+name = "tvai-platform"
+version = "1.0.0"
+requires-python = ">=3.12,<3.13"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "celery.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+ 
+ 
+十八、开发里程碑
+ 
+Phase 1: 基础框架 (第1-2周)
+ 
+ 项目脚手架搭建 (FastAPI 0.115 + Vue 3.5 + Vite 6)
+ Python/Node 版本锁定与环境检查脚本
+ 配置管理 (config.yaml，所有服务支持本地/三方切换)
+ 数据库模型与迁移 (PostgreSQL 17 + SQLAlchemy 2.0 + Alembic 1.14)
+ 基础 API 框架 + 健康检查端点
+ 前端项目框架 + 路由 + 布局 + ESLint 配置
+ 本地部署脚本 (start_all.sh / supervisord.conf)
+ 存储优化模块 (WebP/FLAC/H.265 自动转换)
+ 临时文件自动清理机制
+ 
+Phase 2: 模板与设定体系 (第3-4周)
+ 
+ JSON 模板数据模型与 CRUD API
+ 内置模板初始化脚本 (6 个核心模板)
+ 模板版本管理与回退
+ 模板工坊前端页面 (可视化 JSON Schema 编辑器)
+ 全局设定数据模型与 API
+ 自定义维度扩展机制
+ 场景级设定覆盖
+ 全局设定前端页面 (下拉选择 + 自定义输入 + 自由扩展)
+ Dify 调用时模板注入机制
+ 
+Phase 3: 角色一致性 (第5-6周)
+ 
+ 角色数据模型与 CRUD API
+ ComfyUI Runner 集成 (本地/远程/云统一适配)
+ 角色参考图生成工作流
+ IP-Adapter 一致性保障
+ 跨年龄变体生成
+ 服装/配饰管理
+ 前端角色工坊页面 (引导式创建流程)
+ 
+Phase 4: 剧本与分镜 (第7-8周)
+ 
+ Dify 集成 (模板驱动的结构化输出)
+ 剧本数据模型与 API
+ 分镜拆解服务
+ 前端剧本编辑器 (AI 生成 + 人工逐句编辑)
+ 前端分镜预览页面 (漫画式排列)
+ 
+Phase 5: 视频生产管线 (第9-11周)
+ 
+ 关键帧生成服务 (自动 WebP 压缩)
+ 图生视频服务 (Wan 2.2 / LTX-2.3, 自动 H.265 压缩)
+ 多角色同框合成
+ TTS 语音合成集成 (多引擎, 自动 FLAC 压缩)
+ 字幕生成与对齐
+ 音画字同步引擎
+ FFmpeg 合成服务
+ 生产管线编排器 (每阶段含人工审核节点)
+ 
+Phase 6: 上下文压缩与无限集数 (第12-13周)
+ 
+ 上下文压缩引擎 (ContextCompressor)
+ 集级摘要自动生成
+ 故事弧摘要自动生成
+ 项目级摘要自动更新
+ 滑动窗口机制
+ 批量生产管线集成摘要触发
+ 摘要管理 API 与前端展示
+ 
+Phase 7: 可视化编辑与手工精修 (第14-16周)
+ 
+ 时间轴编辑器 (多轨拖拽对齐)
+ 文本精修面板 (台词编辑/情感调参/旁白修改/查找替换/台词本导入导出)
+ 图片精修面板 (局部重绘/上传替换/参数调整/版本管理/超分/去背景)
+ 人声精修面板 (逐句试听/情感语速调节/重新生成/上传替换/降噪/静音修剪)
+ 背景音精修面板 (BGM生成替换/音效管理/混音调节/音效库)
+ 字幕精修面板 (文本编辑/时间拖拽/拆分合并/样式/导入导出/重新对齐)
+ 视频精修面板 (裁剪/重新生成/上传替换/转场/色彩/滤镜/防抖)
+ 友好命名映射 (技术术语 → 通俗中文标签)
+ 操作提示与引导 (每个面板的提示文案)
+ 实时预览
+ 
+Phase 8: 多集与输出 (第17-18周)
+ 
+ 多集批量生产 (任意集数)
+ 成片导出 (自动压缩编码)
+ 项目管理优化
+ 质量检查流程
+ 存储空间监控面板
+ 
+Phase 9: 测试与优化 (第19-20周)
+ 
+ 集成测试 (pytest + Vitest)
+ 性能优化
+ 一致性质量评估
+ 用户体验优化
+ 文档完善
+ 
+ 
+十九、预期功能效果
+ 
+19.1 角色一致性效果
+ 
+场景	效果描述
+青年角色	面部光滑，发色浓密，体态轻盈，皮肤紧致
+中年变体	眼角细纹，发际线微退，体态稳重，气质沉稳
+老年变体	深层皱纹，老年斑，灰白头发，身姿微佝，戴老花镜
+服装追踪	角色换装后服装细节在整场保持一致
+配饰追踪	婚戒/项链/手表在连续镜头中不消失/不错位
+ 
+19.2 多角色同框效果
+ 
+场景	效果描述
+双人对话	两角色分列画面两侧，面朝对方，口型与台词同步
+三人场景	前景一人+背景两人，深度分层，互不干扰
+群戏	通过区域提示词+分层合成，每角色独立生成后合成
+ 
+19.3 音画字同步效果
+ 
+维度	效果描述
+人声-画面	角色说话时口型与语音节奏匹配
+字幕-人声	字幕在语音开始时出现，结束时消失，误差<200ms
+BGM-场景	场景切换时 BGM 自然过渡（1s 淡入淡出）
+SFX-动作	关门声对准关门帧，脚步声与走路节奏同步
+ 
+19.4 无限集数效果
+ 
+场景	效果描述
+10 集短剧	直接使用完整上下文，无压缩
+50 集连续剧	项目摘要 + 弧摘要 + 滑动窗口，LLM 上下文始终 ≤ 3000 tokens
+100+ 集长剧	三层摘要自动维护，角色和剧情保持连贯，无 token 爆炸风险
+ 
+19.5 存储空间效果
+ 
+资产类型	未优化	优化后	节省
+100 张关键帧 (1080p)	~500MB (PNG)	~80MB (WebP)	84%
+50 段视频片段 (10s)	~2GB (H.264)	~1GB (H.265)	50%
+200 句配音	~600MB (WAV)	~200MB (FLAC)	67%
+临时文件累积	持续增长	24h 自动清理	—
+ 
+19.6 AI 驱动 + 人工精修效果
+ 
+核心理念: AI 负责 80% 的批量生成工作，人工负责 20% 的质量把控与精细调整。
+ 
+环节	AI 负责	人工负责
+文本	剧本/台词/旁白初稿生成	逐句修改措辞、情感标注、查找替换
+图片	关键帧/参考图自动生成	局部重绘、修图、上传替换、参数微调
+人声	全部台词配音自动生成	逐句试听、调语速音调情感、上传替换录音
+背景音	BGM/环境音自动生成	替换音乐、调节混音、添加自定义音效
+字幕	自动语音识别+时间对齐	校对文字、拖拽调整时间、拆分合并
+视频	片段自动生成	裁剪、替换关键帧重生成、转场/色彩/滤镜
+设定	—	全局画风/色调/节奏/自定义维度/场景覆盖
+模板	—	可视化编辑 JSON 模板结构
+ 
+ 
+二十、质量保障
+ 
+20.1 一致性评分
+ 
+python
+python
+class ConsistencyScorer:
+    def score(self, reference: "Image", generated: "Image") -> float:
+        face_sim = self.face_similarity(reference, generated)
+        body_sim = self.body_proportion_check(reference, generated)
+        color_sim = self.color_consistency(reference, generated)
+        return 0.5 * face_sim + 0.3 * body_sim + 0.2 * color_sim
+ 
+20.2 自动重试机制
+ 
+text
+text
+生成结果 → 一致性评分
+    ├── ≥0.85 → 通过，进入下一阶段
+    ├── 0.70~0.84 → 调整参数重试(最多3次)
+    └── <0.70 → 标记异常，人工介入
+ 
+20.3 后端代码质量
+ 
+工具	用途	集成方式
+mypy 1.14	静态类型检查，strict 模式	CI 管线 + pre-commit hook
+ruff 0.8	Lint + 格式化	CI 管线 + pre-commit hook
+pytest 8.3	单元测试 + 集成测试	CI 管线，asyncio_mode=auto
+pytest-cov	测试覆盖率	CI 管线，目标 ≥80%
+ 
+20.4 前端代码质量
+ 
+工具	用途	集成方式
+vue-tsc 2.2	Vue 模板 + TypeScript 类型检查	build 前置检查
+ESLint 9 + typescript-eslint 8	代码规范	CI 管线 + 编辑器集成
+Vitest	单元测试	CI 管线
+ 
+ 
+二十一、关键技术难点与解决方案
+ 
+难点	解决方案
+角色跨年龄一致性	面部嵌入向量 + 年龄迁移LoRA + 固定骨骼结构
+多角色同框	Regional Prompting / 分层合成 + 深度图遮挡排序
+长视频连贯性	关键帧插值 + 首尾帧约束(First-Last Frame I2V)
+情感语音	ChatTTS 内置情感标签 + temperature/Top-P 控制 + 角色音色采样
+多服务统一适配	统一配置层 + 适配器模式，本地/远程/三方平台透明切换
+字幕精确对齐	WhisperX 强制对齐 + 人工微调界面
+无限集数支持	分层摘要(项目/弧/集) + 滑动窗口 + 上下文压缩引擎
+JSON 模板驱动	模板工坊可视化编辑 + 版本管理 + 注入到 Dify 提示词
+人工输入扩展性	全局设定 + 自定义维度 + 场景级覆盖，三层架构
+存储空间优化	WebP/FLAC/H.265 自动压缩 + 参考图去重 + 临时文件自动清理
+本地服务管理	Supervisor 进程管理 + 一键启停脚本 + 健康检查端点
+数据一致性	PostgreSQL 17 事务保障 + Alembic 1.14 迁移版本控制
+依赖版本冲突	版本锁定（pip + pnpm）+ 环境检查脚本 + mypy/ruff 静态分析
+AI生成质量波动	每阶段人工审核节点 + 一致性评分自动重试 + 手工替换兜底
+界面人性化	友好命名映射 + 操作提示 + 渐进式展示 + 引导式流程
+ 
+ 
+本文档为 TVAiPlatform 项目的完整开发规格。所有外部服务均支持本地部署或接入第三方云平台，通过配置文件统一管理。AI 驱动批量生产，人工精细打磨每个环节。通过 JSON 模板驱动 LLM 结构化输出，通过分层摘要支持任意集数，通过存储优化节省磁盘空间，通过人性化界面设计降低使用门槛。所有开发操作严格限定在 /workspace/TVAiPlatform 目录内。运行环境要求：Python 3.12 / Node.js 22 LTS / pnpm 9 / PostgreSQL 17 / Redis 7.4 / FFmpeg 7.1。
