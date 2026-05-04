@@ -13,7 +13,7 @@ BgmAdjust 无 API 调用
 已修复：添加了完整的 BGM API 调用（生成、上传、混音）
 后端 editor.py 全部是 stub
 14 个端点均返回 mock 数据，标注了 TODO
-部分修复：实现了 BGM 相关端点，其他端点仍需集成服务层
+已修复：集成 ComfyUI、ChatTTS、ImageEditorService，添加 SFX 内置库
 后端 production.py 部分 stub
 5 个端点中 3 个有 TODO
 已修复：完善了生产管线逻辑，添加了 stage 执行框架
