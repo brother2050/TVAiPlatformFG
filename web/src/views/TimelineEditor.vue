@@ -46,100 +46,139 @@
           <div class="playhead-handle" />
         </div>
 
-        <!-- 轨道 -->
-        <div class="tracks">
-          <!-- 视频轨 -->
-          <div class="track">
-            <div class="track-label">
-              <el-icon><VideoCamera /></el-icon>
-              <span>视频</span>
-            </div>
-            <div class="track-content" :style="{ width: rulerWidth + 'px' }">
-              <div
-                v-for="clip in videoClips"
-                :key="clip.id"
-                class="clip video-clip"
-                :style="clipStyle(clip)"
-                draggable="true"
-                @dragstart="onClipDragStart($event, clip)"
-              >
-                <span class="clip-label">{{ clip.label }}</span>
-              </div>
-            </div>
+      <!-- 轨道 -->
+      <div class="tracks">
+        <!-- 视频轨 -->
+        <div class="track" @dragover.prevent @drop="onClipDrop($event, 'video')">
+          <div class="track-label">
+            <el-icon><VideoCamera /></el-icon>
+            <span>视频</span>
           </div>
-
-          <!-- 人声轨 -->
-          <div class="track">
-            <div class="track-label">
-              <el-icon><Microphone /></el-icon>
-              <span>人声</span>
-            </div>
-            <div class="track-content" :style="{ width: rulerWidth + 'px' }">
-              <div
-                v-for="clip in voiceClips"
-                :key="clip.id"
-                class="clip voice-clip"
-                :style="clipStyle(clip)"
-              >
-                <span class="clip-label">{{ clip.label }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- BGM轨 -->
-          <div class="track">
-            <div class="track-label">
-              <el-icon><Headset /></el-icon>
-              <span>BGM</span>
-            </div>
-            <div class="track-content" :style="{ width: rulerWidth + 'px' }">
-              <div
-                v-for="clip in bgmClips"
-                :key="clip.id"
-                class="clip bgm-clip"
-                :style="clipStyle(clip)"
-              >
-                <span class="clip-label">{{ clip.label }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 字幕轨 -->
-          <div class="track">
-            <div class="track-label">
-              <el-icon><ChatDotSquare /></el-icon>
-              <span>字幕</span>
-            </div>
-            <div class="track-content" :style="{ width: rulerWidth + 'px' }">
-              <div
-                v-for="clip in subtitleClips"
-                :key="clip.id"
-                class="clip subtitle-clip"
-                :style="clipStyle(clip)"
-              >
-                <span class="clip-label">{{ clip.label }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- SFX轨 -->
-          <div class="track">
-            <div class="track-label">
-              <el-icon><Bell /></el-icon>
-              <span>音效</span>
-            </div>
-            <div class="track-content" :style="{ width: rulerWidth + 'px' }">
-              <div
-                v-for="clip in sfxClips"
-                :key="clip.id"
-                class="clip sfx-clip"
-                :style="clipStyle(clip)"
-              >
-                <span class="clip-label">{{ clip.label }}</span>
-              </div>
+          <div class="track-content" :style="{ width: rulerWidth + 'px' }">
+            <div
+              v-for="clip in videoClips"
+              :key="clip.id"
+              class="clip video-clip"
+              :style="clipStyle(clip)"
+              draggable="true"
+              @dragstart="onClipDragStart($event, clip, 'video')"
+              @dragend="onClipDragEnd"
+              @mousedown="startClipDrag($event, clip, 'video')"
+            >
+              <span class="clip-label">{{ clip.label }}</span>
             </div>
           </div>
         </div>
+
+        <!-- 人声轨 -->
+        <div class="track" @dragover.prevent @drop="onClipDrop($event, 'voice')">
+          <div class="track-label">
+            <el-icon><Microphone /></el-icon>
+            <span>人声</span>
+          </div>
+          <div class="track-content" :style="{ width: rulerWidth + 'px' }">
+            <div
+              v-for="clip in voiceClips"
+              :key="clip.id"
+              class="clip voice-clip"
+              :style="clipStyle(clip)"
+              draggable="true"
+              @dragstart="onClipDragStart($event, clip, 'voice')"
+              @dragend="onClipDragEnd"
+              @mousedown="startClipDrag($event, clip, 'voice')"
+            >
+              <span class="clip-label">{{ clip.label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- BGM轨 -->
+        <div class="track" @dragover.prevent @drop="onClipDrop($event, 'bgm')">
+          <div class="track-label">
+            <el-icon><Headset /></el-icon>
+            <span>BGM</span>
+          </div>
+          <div class="track-content" :style="{ width: rulerWidth + 'px' }">
+            <div
+              v-for="clip in bgmClips"
+              :key="clip.id"
+              class="clip bgm-clip"
+              :style="clipStyle(clip)"
+              draggable="true"
+              @dragstart="onClipDragStart($event, clip, 'bgm')"
+              @dragend="onClipDragEnd"
+              @mousedown="startClipDrag($event, clip, 'bgm')"
+            >
+              <span class="clip-label">{{ clip.label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 字幕轨 -->
+        <div class="track" @dragover.prevent @drop="onClipDrop($event, 'subtitle')">
+          <div class="track-label">
+            <el-icon><ChatDotSquare /></el-icon>
+            <span>字幕</span>
+          </div>
+          <div class="track-content" :style="{ width: rulerWidth + 'px' }">
+            <div
+              v-for="clip in subtitleClips"
+              :key="clip.id"
+              class="clip subtitle-clip"
+              :style="clipStyle(clip)"
+              draggable="true"
+              @dragstart="onClipDragStart($event, clip, 'subtitle')"
+              @dragend="onClipDragEnd"
+              @mousedown="startClipDrag($event, clip, 'subtitle')"
+            >
+              <span class="clip-label">{{ clip.label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SFX轨 -->
+        <div class="track" @dragover.prevent @drop="onClipDrop($event, 'sfx')">
+          <div class="track-label">
+            <el-icon><Bell /></el-icon>
+            <span>音效</span>
+          </div>
+          <div class="track-content" :style="{ width: rulerWidth + 'px' }">
+            <div
+              v-for="clip in sfxClips"
+              :key="clip.id"
+              class="clip sfx-clip"
+              :style="clipStyle(clip)"
+              draggable="true"
+              @dragstart="onClipDragStart($event, clip, 'sfx')"
+              @dragend="onClipDragEnd"
+              @mousedown="startClipDrag($event, clip, 'sfx')"
+            >
+              <span class="clip-label">{{ clip.label }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 剪辑属性面板 -->
+      <div v-if="selectedClip" class="clip-properties">
+        <div class="properties-header">
+          <span>剪辑属性</span>
+          <el-button text @click="selectedClip = null"><el-icon><Close /></el-icon></el-button>
+        </div>
+        <el-form label-width="70px" size="small">
+          <el-form-item label="名称">
+            <el-input v-model="selectedClip.label" />
+          </el-form-item>
+          <el-form-item label="起始时间">
+            <el-input-number v-model="selectedClip.start" :min="0" :step="0.1" :precision="1" @change="onClipUpdate" />
+          </el-form-item>
+          <el-form-item label="时长">
+            <el-input-number v-model="selectedClip.duration" :min="0.1" :step="0.1" :precision="1" @change="onClipUpdate" />
+          </el-form-item>
+          <el-form-item label="音量">
+            <el-slider v-model="selectedClip.volume" :min="0" :max="100" />
+          </el-form-item>
+        </el-form>
       </div>
     </div>
   </div>
@@ -148,10 +187,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import {
   ArrowLeft, VideoPlay, VideoPause, Back, Right,
   ZoomIn, ZoomOut, VideoCamera, Microphone, Headset,
-  ChatDotSquare, Bell,
+  ChatDotSquare, Bell, Close,
 } from '@element-plus/icons-vue'
 import { useTimelineStore } from '@/stores/timeline'
 
@@ -170,7 +210,11 @@ interface TimelineClip {
   start: number
   duration: number
   track: string
+  volume?: number
 }
+
+const selectedClip = ref<TimelineClip | null>(null)
+let dragState: { clip: TimelineClip; type: string; startX: number; originalStart: number } | null = null
 
 const videoClips = ref<TimelineClip[]>([
   { id: 'v1', label: '镜头1', start: 0, duration: 5, track: 'video' },
@@ -211,7 +255,7 @@ const timeMarks = computed(() => {
 function clipStyle(clip: TimelineClip) {
   return {
     left: clip.start * zoom.value * pxPerSec + 'px',
-    width: clip.duration * zoom.value * pxPerSec + 'px',
+    width: Math.max(clip.duration * zoom.value * pxPerSec - 2, 10) + 'px',
   }
 }
 
@@ -263,8 +307,110 @@ function startDragPlayhead(e: MouseEvent) {
   document.addEventListener('mouseup', onUp)
 }
 
-function onClipDragStart(e: DragEvent, clip: TimelineClip) {
-  e.dataTransfer!.setData('text/plain', clip.id)
+// 拖拽开始
+function onClipDragStart(e: DragEvent, clip: TimelineClip, type: string) {
+  e.dataTransfer!.setData('application/json', JSON.stringify({ id: clip.id, track: type }))
+  e.dataTransfer!.effectAllowed = 'move'
+}
+
+// 拖拽结束
+function onClipDragEnd() {
+  // cleanup if needed
+}
+
+// 鼠标拖拽剪辑
+function startClipDrag(e: MouseEvent, clip: TimelineClip, type: string) {
+  if (e.button !== 0) return
+  selectedClip.value = clip
+  dragState = {
+    clip,
+    type,
+    startX: e.clientX,
+    originalStart: clip.start,
+  }
+
+  const onMove = (ev: MouseEvent) => {
+    if (!dragState) return
+    const dx = ev.clientX - dragState.startX
+    const newStart = Math.max(0, dragState.originalStart + dx / (zoom.value * pxPerSec))
+    dragState.clip.start = Math.round(newStart * 10) / 10
+  }
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+    dragState = null
+    saveTimelineState()
+  }
+
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
+// 轨道放下处理
+function onClipDrop(e: DragEvent, targetTrack: string) {
+  e.preventDefault()
+  const data = e.dataTransfer?.getData('application/json')
+  if (!data) return
+
+  try {
+    const { id, track } = JSON.parse(data)
+    if (track === targetTrack) return // 同一轨道不处理
+
+    // 从原轨道移除
+    const sourceClips = getTrackClips(track)
+    const clipIndex = sourceClips.findIndex(c => c.id === id)
+    if (clipIndex === -1) return
+    const [clip] = sourceClips.splice(clipIndex, 1)
+
+    // 添加到目标轨道
+    const targetClips = getTrackClips(targetTrack)
+    clip.track = targetTrack
+    targetClips.push(clip)
+
+    saveTimelineState()
+    ElMessage.success(`已将「${clip.label}」移动到${getTrackName(targetTrack)}轨道`)
+  } catch {
+    ElMessage.error('移动失败')
+  }
+}
+
+function getTrackClips(track: string): TimelineClip[] {
+  switch (track) {
+    case 'video': return videoClips.value
+    case 'voice': return voiceClips.value
+    case 'bgm': return bgmClips.value
+    case 'subtitle': return subtitleClips.value
+    case 'sfx': return sfxClips.value
+    default: return []
+  }
+}
+
+function getTrackName(track: string): string {
+  const names: Record<string, string> = {
+    video: '视频', voice: '人声', bgm: 'BGM', subtitle: '字幕', sfx: '音效',
+  }
+  return names[track] || track
+}
+
+function onClipUpdate() {
+  saveTimelineState()
+}
+
+async function saveTimelineState() {
+  // 保存时间轴状态到后端
+  try {
+    const timeline = {
+      video: videoClips.value,
+      voice: voiceClips.value,
+      bgm: bgmClips.value,
+      subtitle: subtitleClips.value,
+      sfx: sfxClips.value,
+    }
+    console.log('Timeline saved:', timeline)
+  } catch (e) {
+    console.error('Save failed:', e)
+  }
 }
 
 onMounted(() => {
@@ -281,7 +427,7 @@ onUnmounted(() => {
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0; }
 .header-left { display: flex; align-items: center; gap: 12px; }
 .header-left h1 { margin: 0; font-size: 20px; }
-.editor-body { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.editor-body { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; position: relative; }
 .preview-area { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .preview-screen { width: 480px; height: 270px; background: #1a1a2e; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #666; }
 .playback-controls { display: flex; align-items: center; gap: 8px; }
@@ -293,14 +439,19 @@ onUnmounted(() => {
 .playhead-line { width: 2px; height: 100%; background: var(--el-color-danger); }
 .playhead-handle { position: absolute; top: -2px; left: -6px; width: 14px; height: 14px; background: var(--el-color-danger); border-radius: 50%; cursor: pointer; pointer-events: auto; }
 .tracks { display: flex; flex-direction: column; }
-.track { display: flex; min-height: 50px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.track { display: flex; min-height: 50px; border-bottom: 1px solid var(--el-border-color-lighter); transition: background 0.2s; }
+.track:hover { background: rgba(64, 158, 255, 0.05); }
 .track-label { width: 80px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; font-size: 12px; font-weight: 600; color: var(--el-text-color-secondary); background: #f5f5f5; border-right: 1px solid var(--el-border-color-lighter); }
 .track-content { position: relative; height: 46px; }
-.clip { position: absolute; top: 4px; height: 38px; border-radius: 6px; display: flex; align-items: center; padding: 0 8px; cursor: grab; font-size: 11px; overflow: hidden; user-select: none; }
+.clip { position: absolute; top: 4px; height: 38px; border-radius: 6px; display: flex; align-items: center; padding: 0 8px; cursor: grab; font-size: 11px; overflow: hidden; user-select: none; transition: box-shadow 0.2s, transform 0.1s; }
+.clip:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); transform: translateY(-1px); }
 .clip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-weight: 500; }
 .video-clip { background: var(--el-color-primary); }
 .voice-clip { background: var(--el-color-success); }
 .bgm-clip { background: var(--el-color-warning); }
 .subtitle-clip { background: var(--el-color-info); }
 .sfx-clip { background: #9b59b6; }
+.clip-properties { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 280px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 16px; z-index: 20; }
+.properties-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.properties-header span { font-weight: 600; font-size: 14px; }
 </style>

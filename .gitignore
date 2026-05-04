@@ -98,6 +98,6 @@ config.local.yml
 *.db
 *.sqlite
 *.sqlite3
-
+*.rdb
 # TTS cache
 tts/cache/

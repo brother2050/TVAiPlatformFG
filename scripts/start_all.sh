@@ -8,6 +8,9 @@ cd "$PROJECT_ROOT"
 
 source .env 2>/dev/null || true
 
+# ---- Auto-create required directories ----
+mkdir -p data/logs data/redis storage/media
+
 echo "============================================"
 echo "  TVAiPlatform — Starting all services"
 echo "============================================"
@@ -52,6 +55,7 @@ if lsof -i :"${API_PORT:-8000}" &>/dev/null 2>&1; then
     echo "  ✓ API already running on :${API_PORT:-8000}"
 else
     cd api
+    export PYTHONPATH="$PROJECT_ROOT"
     nohup python -m uvicorn main:app --host "${API_HOST:-0.0.0.0}" --port "${API_PORT:-8000}" \
         > ../data/logs/api.log 2>&1 &
     echo $! > ../data/logs/api.pid
@@ -65,7 +69,7 @@ if lsof -i :3100 &>/dev/null 2>&1; then
     echo "  ✓ Web already running on :3100"
 else
     cd web
-    nohup pnpm dev --port 3100 > ../data/logs/web.log 2>&1 &
+    nohup pnpm dev --host 0.0.0.0 --port 3100 > ../data/logs/web.log 2>&1 &
     echo $! > ../data/logs/web.pid
     cd "$PROJECT_ROOT"
     echo "  ✓ Web started (PID $(cat data/logs/web.pid))"

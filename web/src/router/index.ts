@@ -92,6 +92,18 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/Export.vue'),
     meta: { title: '导出作品' },
   },
+  {
+    path: '/project/:id/batch-production',
+    name: 'BatchProduction',
+    component: () => import('@/views/BatchProduction.vue'),
+    meta: { title: '批量生产' },
+  },
+  {
+    path: '/project/:id/storage',
+    name: 'StorageMonitor',
+    component: () => import('@/views/StorageMonitor.vue'),
+    meta: { title: '存储空间' },
+  },
 ]
 
 const router = createRouter({

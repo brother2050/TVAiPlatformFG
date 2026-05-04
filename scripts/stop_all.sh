@@ -30,11 +30,11 @@ stop_pid() {
 # Kill by port if PID file missing
 kill_port() {
     local name="$1" port="$2"
-    local pid
-    pid=$(lsof -ti :"$port" 2>/dev/null || true)
-    if [[ -n "$pid" ]]; then
-        kill "$pid" 2>/dev/null || true
-        echo "  ✓ $name killed on :$port (PID $pid)"
+    local pids
+    pids=$(lsof -ti :"$port" 2>/dev/null || true)
+    if [[ -n "$pids" ]]; then
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        echo "  ✓ $name killed on :$port"
     fi
 }
 
